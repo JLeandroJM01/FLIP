@@ -3,7 +3,9 @@
 **FLIP** — Finanzas y Liderazgo Inteligente con un Propósito. Web personal de finanzas de José Leandro (un solo usuario). **La fuente de verdad es [docs/SPEC.md](docs/SPEC.md)**: ante cualquier duda, consultarlo; si algo no está ahí o es ambiguo, preguntar en vez de inventar datos o reglas.
 
 ## Stack
-- Next.js (App Router) + TypeScript + Tailwind + shadcn/ui. Gráficos con Recharts (desde la Fase 3).
+- Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui (preset radix-nova, iconos lucide).
+  - **Next 16 cambia APIs respecto a versiones anteriores:** leer la guía en `node_modules/next/dist/docs/` antes de usar una API (ver @AGENTS.md). El middleware ahora se llama **`proxy.ts`**.
+  - `cacheComponents` está **desactivado** a propósito: toda la app va detrás del login y es dinámica. Gráficos con Recharts (desde la Fase 3).
 - Supabase: Postgres + Auth (solo Google) + Row Level Security en **todas** las tablas.
 - Hosting en Vercel (plan gratis) + Vercel Cron.
 - Gmail → Google Apps Script → `POST /api/ingest` con firma HMAC (Fase 2).
@@ -19,7 +21,8 @@ components/             UI (components/ui = shadcn)
 lib/supabase/           clientes de Supabase (browser, server, middleware)
 lib/finance/            funciones PURAS: impuesto de quinta, AFP, gratificación, utilidades, neto, proyección, deudas
 lib/parsers/            un archivo por formato de correo + index.ts que decide por asunto (Fase 2)
-lib/format.ts           formato de soles y fechas
+lib/format.ts           formato de soles (S/) y dólares (US$) en es-PE
+lib/dates.ts            día y mes en hora de Lima (rangos de mes, datetime-local)
 supabase/migrations/    esquema SQL (tablas de la sección 6 del SPEC)
 supabase/seed.sql       datos iniciales (cuentas, categorías, reglas, deudas, perfil de ingresos)
 apps-script/Code.gs     script de Gmail (Fase 2)
@@ -32,6 +35,7 @@ e2e/                    Playwright (capturas en 375, 768 y 1440 px)
 npm run dev            # servidor local
 npm run build          # build de producción
 npm run lint
+npm run typecheck      # next typegen + tsc
 npm test               # Vitest
 npm run test:e2e       # Playwright
 npx supabase start     # Supabase local (requiere Docker)
@@ -53,7 +57,9 @@ npx supabase db reset  # aplica migraciones + seed en local
 
 ## Finanzas (lib/finance)
 - Funciones puras, sin acceso a la base de datos, con tests que usan los valores de la sección 19 del SPEC.
-- AFP 12.97% (10% aporte + 1.37% seguro + 1.60% comisión sobre flujo). A gratificaciones, utilidades y bono no se les descuenta AFP, sí impuesto.
+- Montos en TS como `number`, redondeados con `round2` (céntimos) en cada resultado de dinero.
+- AFP 12.97% (10% aporte + 1.37% seguro + 1.60% comisión sobre flujo).
+- Gratificación: sueldo × días base (35) / 30 × (1 + bonificación extraordinaria 6.75% por EPS) × meses completos / 6. La tasa de bonificación es un parámetro, no una constante. A gratificaciones, utilidades y bono no se les descuenta AFP, sí impuesto.
 - Impuesto de quinta: renta neta = bruto anual − 7 UIT; tramos 8% (hasta 5 UIT), 14% (5–20), 17% (20–35), 20% (35–45), 30% (> 45). UIT 2026 = S/ 5,500.
 - Parámetros (UIT, tasas AFP, días de pago, sueldos de utilidades, bono máximo, umbral de gasto compartido) viven en `settings`/`income_profile`, no en el código.
 

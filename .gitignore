@@ -27,3 +27,10 @@ e2e/screenshots/
 
 # sistema
 .DS_Store
+
+# varios
+/build
+*.pem
+.pnp
+.pnp.*
+npm-debug.log*

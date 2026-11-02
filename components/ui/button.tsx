@@ -31,6 +31,9 @@ const buttonVariants = cva(
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
         "icon-lg": "size-9",
+        // FLIP: objetivos táctiles de al menos 44 px (SPEC 13)
+        touch: "h-11 gap-2 px-4 text-base",
+        "icon-touch": "size-11",
       },
     },
     defaultVariants: {

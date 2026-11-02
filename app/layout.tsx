@@ -20,6 +20,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#0e0f0f",
   colorScheme: "dark",
+  // Android: al abrir el teclado se achica la página, así la hoja inferior queda encima.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

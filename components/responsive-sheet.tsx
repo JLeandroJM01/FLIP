@@ -38,7 +38,8 @@ export function ResponsiveSheet({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
+    // repositionInputs (por defecto): la hoja se acomoda encima del teclado del celular.
+    <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[94dvh]">
         <DrawerHeader className="pb-1 text-left">
           <DrawerTitle>{title}</DrawerTitle>

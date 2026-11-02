@@ -1,0 +1,29 @@
+# dependencias
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# secretos: nunca se versionan (la plantilla es .env.example)
+.env
+.env.*
+!.env.example
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# tests
+coverage/
+test-results/
+playwright-report/
+e2e/screenshots/
+
+# Vercel
+.vercel/
+
+# sistema
+.DS_Store

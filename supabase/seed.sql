@@ -98,4 +98,8 @@ insert into public.settings (key, value) values
   ('shared_prompt_threshold', '60'),
   ('shared_prompt_categories', '["Comida", "Delivery", "Salidas"]'),
   ('monthly_budget', '1500'),
+  ('default_accounts', jsonb_build_object(
+     'gasto',     (select id from public.accounts where name = 'Efectivo'),
+     'ingreso',   (select id from public.accounts where name = 'Cuenta corriente soles'),
+     'reembolso', (select id from public.accounts where name = 'Cuenta de ahorros soles'))),
   ('other_employers_income', '{"2026": {"employer": "Prima AFP", "income": 27500, "withheld": null, "estimated": true}}');

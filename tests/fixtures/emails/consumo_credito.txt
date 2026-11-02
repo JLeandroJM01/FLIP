@@ -1,0 +1,25 @@
+Subject: Realizaste un consumo con tu Tarjeta de Crédito BCP - Servicio de Notificaciones BCP
+
+ 
+  
+
+Hola *Usuario,*
+
+Realizaste un consumo de *S/ 70.00* con tu *Tarjeta de Crédito BCP* en *AQUA 
+HOTEL 933.*
+
+Por tu seguridad, te enviamos los *datos de tu operación.*
+  
+
+*Monto*
+  
+Total del consumo *S/ 70.00* 
+  
+
+*Datos de la operación*
+  
+Operación realizada *Consumo Tarjeta de Crédito* 
+Fecha y hora *31 de octubre de 2026 - 08:17 PM* 
+Número de Tarjeta de Crédito *************6129* 
+Empresa *AQUA HOTEL 933* 
+Número de operación *0000161072*

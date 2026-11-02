@@ -1,0 +1,24 @@
+Subject: Se rechazó tu compra por fondos insuficientes - Servicio de Notificaciones BCP
+
+ 
+  
+
+Hola *Usuario,*
+
+*Lo sentimos, tu compra fue rechazada* debido a que has superado el monto 
+disponible de la línea de crédito de tu tarjeta.
+
+A continuación, te brindamos los *detalles de la operación rechazada.*
+  
+
+*Monto*
+  
+Importe de compra rechazada *S/ 622.82* 
+  
+
+*Datos de la operación*
+  
+Motivo de rechazo *Fondos insuficientes* 
+Fecha y hora *31 de octubre de 2026 - 11:34 PM* 
+Número de Tarjeta *************6129* 
+Nombre del Comercio *MP*ARUMA*

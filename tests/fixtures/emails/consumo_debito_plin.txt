@@ -1,0 +1,25 @@
+Subject: Realizaste un consumo con tu Tarjeta de Débito BCP - Servicio de Notificaciones BCP
+
+
+  
+
+Hola *Usuario,*
+
+Realizaste un consumo de *S/ 26.00* con tu *Tarjeta de Débito BCP* en *PLIN-JUAN 
+PEREZ GO.*
+
+Por tu seguridad, te enviamos los *datos de tu operación.*
+  
+
+*Monto*
+  
+Total del consumo *S/ 26.00* 
+  
+
+*Datos de la operación*
+  
+Operación realizada *Consumo Tarjeta de Débito* 
+Fecha y hora *01 de noviembre de 2026 - 04:59 AM* 
+Número de Tarjeta de Débito *************4039* 
+Empresa *PLIN-JUAN PEREZ GO* 
+Número de operación *051466*

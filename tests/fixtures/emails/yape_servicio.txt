@@ -1,0 +1,35 @@
+Subject: Tu yapeo de servicio ha sido confirmado
+
+Hola *USUARIO,*
+¡Tu servicio fue yapeado con éxito!
+
+Monto total
+S/ 5.00
+
+
+
+Yapero(a): USUARIO DE PRUEBA
+
+Número de celular: *** *** 000
+
+Fecha y hora: 02 Nov, 2026 - 01:58 pm
+
+Nº de operación Yape: 01593410
+
+Detalle del servicio:
+
+Empresa: Metropolitano y Corredores
+
+Servicio: Recarga de Tarjetas
+
+Código de usuario: 900000000
+
+Titular del servicio: Tarj. Preferencial Universitario
+
+
+
+
+ID DE VENTA: 20261102135816900000000<br />Para activar tu recarga, espera:<br />15 minutos si la activacion se realizara<br />en estaciones. <br />15 minutos si se realizara en los buses<br />de los corredores complementarios.
+
+
+( https://example.invalid )

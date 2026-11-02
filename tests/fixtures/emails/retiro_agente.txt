@@ -1,0 +1,16 @@
+Subject: Realizaste un retiro en un Agente BCP - Servicio de Notificaciones BCP
+
+Hola *Usuario,*
+Realizaste un retiro de *S/ 200.00* con tu *Tarjeta de Débito BCP* en un *Agente BCP.*
+Por tu seguridad, te enviamos los *datos de tu operación.*
+*Montos*
+Monto retirado *S/ 200.00* 
+Comisión por operación *GRATIS* 
+*Datos de la operación*
+Operación realizada *Retiro* 
+Fecha y hora *27 de octubre de 2026 - 19:40 PM* 
+Número de Tarjeta de Débito *************4039* 
+Cuenta de cargo **** 6060 
+Canal *Agente BCP* 
+Código de agente *H000000* 
+Número de operación *117563* 

@@ -1,0 +1,12 @@
+Subject: Realizamos una devolución de una operación a tu Tarjeta de Débito BCP - Servicio de Notificaciones BCP
+
+Hola *Usuario,*
+Se ha devuelto el monto de *S/ 500.00* a tu *cuenta BCP.*
+A continuación, te brindamos los *detalles de la devolución.*
+*Monto*
+Total devuelto *S/ 500.00* 
+*Datos de la operación*
+Fecha y hora *22 de octubre de 2026 - 03:18 PM* 
+Número de Tarjeta *************4039* 
+Nombre del Comercio *PLIN-LUIS TORRES* 
+Número de operación *989474* 

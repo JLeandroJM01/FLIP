@@ -1,0 +1,16 @@
+Subject: Constancia de Transferencia Entre mis Cuentas - Servicio de Notificaciones BCP
+
+Hola *Usuario,*
+Realizaste una transferencia de *S/ 600.00* desde tu *Clasica.*
+Por tu seguridad, te enviamos los *datos de tu operación.*
+*Montos*
+Monto transferido *S/ 600.00* 
+*Datos de la operación*
+Operación realizada *Transferencia entre mis cuentas* 
+Fecha y hora *27 de Octubre de 2026 - 06:47 PM* 
+Desde *Clasica*
+**** 2046 
+Enviado a *Clasica*
+**** 6060 
+Canal *Banca Móvil BCP* 
+Número de operación *05093553* 

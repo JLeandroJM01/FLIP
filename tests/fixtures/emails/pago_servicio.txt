@@ -1,0 +1,23 @@
+Subject: ENVIO AUTOMATICO - CONSTANCIA DE PAGO DE SERVICIO - BANCA MOVIL BCP
+
+Hola USUARIO,
+¡Tu operación se realizó con éxito!
+Operación realizada:
+Pago de servicios
+Número de operación:
+00766331
+Fecha y hora: Lunes, 26 Octubre 2026 - 08:22 A. M.
+Empresa: CLARO
+Servicio: 02 PAGO POR TELEFONO
+Titular del servicio: MAC****************
+Código de usuario: 900000000
+Cuenta de origen: Tarjeta de crédito
+**** 6129
+USUARIO
+Monto total: S/ 39.95
+Nº 1
+Doc. pago: SB02-0000000000
+Vencimiento: 05/11/2026
+Importe: S/ 39.95
+Cargo fijo: S/ 0.00
+Mora: S/ 0.00

@@ -1,0 +1,25 @@
+Subject: Realizaste un consumo con tu Tarjeta de Crédito BCP - Servicio de Notificaciones BCP
+
+ 
+  
+
+Hola *Usuario,*
+
+Realizaste un consumo de *$ 3.84* con tu *Tarjeta de Crédito BCP* en 
+*APPLE.COM/BILL.*
+
+Por tu seguridad, te enviamos los *datos de tu operación.*
+  
+
+*Monto*
+  
+Total del consumo *$ 3.84* 
+  
+
+*Datos de la operación*
+  
+Operación realizada *Consumo Tarjeta de Crédito* 
+Fecha y hora *01 de noviembre de 2026 - 02:31 PM* 
+Número de Tarjeta de Crédito *************6129* 
+Empresa *APPLE.COM/BILL* 
+Número de operación *0000087875*

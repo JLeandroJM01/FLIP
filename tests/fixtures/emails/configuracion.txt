@@ -1,0 +1,23 @@
+Subject: Constancia de Configuración de Tarjeta en Banca Móvil BCP - Servicio de Notificaciones BCP
+
+ 
+  
+
+Hola *Usuario,*
+
+Realizaste una configuración para tu *Tarjeta de Crédito Visa Oro LATAM 
+Pass.*
+
+Por tu seguridad, te enviamos los cambios que realizaste:
+  
+
+*Datos de la configuración* 
+  
+Fecha y hora *31 de octubre de 2026 - 11:39 p. m.* 
+Tarjeta de Crédito *Visa Oro LATAM Pass* 
+**** 6129 
+Compras por internet *Desactivado* 
+Compras en el extranjero *Activado* 
+Disposición de efectivo *Desactivado* 
+Canal *Banca Móvil BCP* 
+Número de operación * 29097489 <#>*

@@ -44,12 +44,14 @@ describe("POST /api/ingest", () => {
     expect(res.status).toBe(401);
   });
 
-  it("guarda el correo como pendiente", async () => {
+  it("guarda el correo y lo procesa en el momento", async () => {
     const res = await POST(request(payload()));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, received: 1, stored: 1 });
     const { data } = await admin.from("raw_emails").select("subject, body, parse_status").eq("gmail_message_id", ID).single();
-    expect(data).toMatchObject({ parse_status: "pendiente", subject: message.subject, body: message.plain_body });
+    expect(data).toMatchObject({ subject: message.subject, body: message.plain_body });
+    // El cuerpo de prueba no trae los campos del formato: queda como desconocido, nunca se adivina.
+    expect(data?.parse_status).toBe("desconocido");
   });
 
   it("si el mismo correo llega dos veces, no se duplica", async () => {

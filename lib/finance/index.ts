@@ -6,3 +6,4 @@ export * from "./net-salary";
 export * from "./profit-sharing";
 export * from "./monthly-summary";
 export * from "./balances";
+export * from "./salary-schedule";

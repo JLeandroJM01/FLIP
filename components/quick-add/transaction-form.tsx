@@ -118,7 +118,16 @@ export function TransactionForm({
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="currency" value={currency} />
 
-      {!editing && (
+      {transaction && (transaction.merchant || transaction.source !== "manual") && (
+        <p className="text-sm text-muted-foreground">
+          {transaction.merchant && <strong className="text-foreground">{transaction.merchant}</strong>}
+          {transaction.source === "gmail" && " · desde Gmail"}
+          {transaction.source === "recurrente" && " · registro automático"}
+          {transaction.note && ` · ${transaction.note}`}
+        </p>
+      )}
+
+      {(!editing || transaction?.status === "por_revisar") && (
         <div role="radiogroup" aria-label="Tipo de registro" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
           {(Object.keys(KIND_LABELS) as QuickKind[]).map((k) => (
             <button
@@ -267,6 +276,16 @@ export function TransactionForm({
         {errors.account_id && <FieldError>{errors.account_id}</FieldError>}
       </fieldset>
 
+      {transaction?.merchant && kind !== "reembolso" && (
+        <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm has-[:checked]:border-primary">
+          <input type="checkbox" name="apply_rule" value="1" className="mt-0.5 size-4 accent-[var(--primary)]" />
+          <span>
+            Usar siempre esta categoría para <strong className="break-words">{transaction.merchant}</strong>
+            <span className="block text-xs text-muted-foreground">También se aplica a los anteriores sin categoría.</span>
+          </span>
+        </label>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="note">Nota (opcional)</Label>
         <Input
@@ -314,7 +333,13 @@ export function TransactionForm({
         // Fijo abajo de la hoja: se puede guardar sin bajar hasta el final.
         <div className="sticky bottom-0 z-10 -mx-4 bg-gradient-to-t from-popover from-75% to-transparent px-4 pt-4 pb-2">
           <Button type="submit" size="touch" className="w-full" disabled={saving}>
-            {saving ? "Guardando…" : editing ? "Guardar cambios" : SUBMIT_LABELS[kind]}
+            {saving
+            ? "Guardando…"
+            : transaction?.status === "por_revisar"
+              ? "Guardar y confirmar"
+              : editing
+                ? "Guardar cambios"
+                : SUBMIT_LABELS[kind]}
           </Button>
         </div>
       )}

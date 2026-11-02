@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, HandCoins } from "lucide-react";
+import { ArrowLeftRight, CircleHelp, HandCoins } from "lucide-react";
 import { CategoryIcon } from "@/components/category-icon";
 import { useQuickAdd } from "@/components/quick-add/quick-add-provider";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +58,9 @@ export function TransactionList({
                         {grouped ? formatTime(tx.occurred_at) : formatShortDate(tx.occurred_at)} ·{" "}
                         {tx.account?.name}
                         {tx.status !== "confirmado" && <StatusText status={tx.status} />}
+                        {tx.status === "confirmado" && !tx.category && ["gasto", "ingreso"].includes(tx.type) && (
+                          <span className="ml-1 font-medium text-amber-400">· Sin categoría</span>
+                        )}
                       </span>
                     </span>
                     <TxAmount tx={tx} className="text-sm" />
@@ -136,11 +139,13 @@ export function TransactionList({
 
 function TxIcon({ tx, size = "md" }: { tx: TransactionRow; size?: "sm" | "md" }) {
   if (tx.category) return <CategoryIcon icon={tx.category.icon} color={tx.category.color} size={size} />;
-  const Icon = tx.type === "reembolso" ? HandCoins : ArrowLeftRight;
+  const uncategorized = tx.type === "gasto" || tx.type === "ingreso";
+  const Icon = tx.type === "reembolso" ? HandCoins : uncategorized ? CircleHelp : ArrowLeftRight;
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-accent text-primary",
+        "inline-flex shrink-0 items-center justify-center rounded-full",
+        uncategorized ? "bg-amber-400/15 text-amber-400" : "bg-accent text-primary",
         size === "md" ? "size-10" : "size-8",
       )}
     >

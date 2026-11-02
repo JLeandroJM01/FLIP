@@ -1,7 +1,17 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { monthRange, type YearMonth } from "@/lib/dates";
-import { accountBalances, monthlySummary, type BalanceTx, type SummaryTx } from "@/lib/finance";
+import {
+  accountBalances,
+  DEFAULT_AFP_RATES,
+  monthlySummary,
+  salaryPaymentsOn,
+  type AfpRates,
+  type BalanceTx,
+  type PayItem,
+  type SalaryPayment,
+  type SummaryTx,
+} from "@/lib/finance";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Catalogs, DefaultAccounts, TransactionRow } from "@/lib/types";
 
@@ -47,12 +57,31 @@ export async function getRecentTransactions(supabase: DB, limit: number) {
   return (data ?? []) as unknown as TransactionRow[];
 }
 
+/**
+ * "Por revisar" (SPEC 1): los movimientos que la app no pudo decidir (status por_revisar) y
+ * los gastos/ingresos confirmados que llegaron sin categoría (cuentan en los totales, pero
+ * falta ponerles categoría).
+ */
+export const REVIEW_FILTER =
+  "status.eq.por_revisar,and(status.eq.confirmado,category_id.is.null,type.in.(gasto,ingreso))";
+
 export async function countPendingReview(supabase: DB): Promise<number> {
-  const { count } = await supabase
-    .from("transactions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "por_revisar");
-  return count ?? 0;
+  const [{ count }, { count: emails }] = await Promise.all([
+    supabase.from("transactions").select("id", { count: "exact", head: true }).or(REVIEW_FILTER),
+    supabase.from("raw_emails").select("id", { count: "exact", head: true }).in("parse_status", ["desconocido", "error"]),
+  ]);
+  return (count ?? 0) + (emails ?? 0);
+}
+
+/** Correos que la app no entendió o no pudo guardar (SPEC 1: nunca se pierden). */
+export async function getUnparsedEmails(supabase: DB) {
+  const { data } = await supabase
+    .from("raw_emails")
+    .select("id, subject, received_at, parse_status, error")
+    .in("parse_status", ["desconocido", "error"])
+    .order("received_at", { ascending: false })
+    .limit(50);
+  return data ?? [];
 }
 
 /** Resumen del mes con las reglas de lib/finance/monthly-summary (efectivo, reembolsos…). */
@@ -128,4 +157,29 @@ export async function getAccountBalances(supabase: DB, catalogs: Catalogs) {
     })),
     transactions,
   );
+}
+
+/** Próximo pago de sueldo que FLIP registrará solo (SPEC 9.5), mirando 45 días adelante. */
+export async function getNextSalaryPayment(supabase: DB, today: string): Promise<SalaryPayment | null> {
+  const [{ data: profile }, settings] = await Promise.all([
+    supabase.from("income_profile").select("*").is("end_date", null).order("start_date", { ascending: false }).limit(1).maybeSingle(),
+    getSettings(supabase),
+  ]);
+  if (!profile) return null;
+  const taxByPeriod = (settings.monthly_tax_estimate ?? {}) as Record<string, number>;
+  const salary = {
+    startDate: profile.start_date,
+    endDate: profile.end_date,
+    monthlyGross: Number(profile.monthly_gross),
+    paySchedule: profile.pay_schedule as PayItem[],
+    afpRates: { ...DEFAULT_AFP_RATES, ...((settings.afp_rates ?? {}) as Partial<AfpRates>) },
+  };
+  const tax = (ym: string) => taxByPeriod[ym] ?? taxByPeriod[ym.slice(0, 4)] ?? 0;
+  for (let i = 0; i <= 45; i++) {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    const [pay] = salaryPaymentsOn(d.toISOString().slice(0, 10), salary, tax);
+    if (pay) return pay;
+  }
+  return null;
 }

@@ -153,14 +153,14 @@ isOneToOne: false
                   ]
                 },"debts": {
                   Row: {
-                    "account_id": string | null,"balance": number,"created_at": string,"creditor_person_id": string | null,"currency": Database["public"]['Enums']["currency_code"],"id": string,"installment_amount": number | null,"installments_paid": number,"installments_total": number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date": string | null,"notes": string | null,"original_amount": number | null,"tcea": number | null
+                    "account_id": string | null,"balance": number,"created_at": string,"creditor_person_id": string | null,"currency": Database["public"]['Enums']["currency_code"],"external_op_id": string | null,"id": string,"installment_amount": number | null,"installments_paid": number,"installments_total": number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date": string | null,"notes": string | null,"original_amount": number | null,"tcea": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id"?: string | null,"balance": number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
+                    "account_id"?: string | null,"balance": number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
                   }
                   Update: {
-                    "account_id"?: string | null,"balance"?: number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind"?: Database["public"]['Enums']["debt_kind"],"name"?: string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
+                    "account_id"?: string | null,"balance"?: number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind"?: Database["public"]['Enums']["debt_kind"],"name"?: string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
                   }
                   Relationships: [
                     {
@@ -428,7 +428,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_type": "corriente"|"ahorros"|"debito"|"credito"|"billetera"|"activo"|"empresa","afp_commission_type": "flujo"|"mixta","category_kind": "gasto"|"ingreso","currency_code": "PEN"|"USD","debt_kind": "tarjeta"|"cuotas"|"personal","income_event_kind": "sueldo"|"gratificacion"|"cts"|"utilidades"|"bono"|"asignacion_vacacional"|"empresa"|"otro","parse_status": "pendiente"|"ok"|"desconocido"|"error","rule_match": "contiene"|"empieza_con"|"regex","tx_source": "gmail"|"manual"|"recurrente","tx_status": "confirmado"|"por_revisar"|"anulado","tx_type": "gasto"|"ingreso"|"transferencia"|"pago_tarjeta"|"pago_deuda"|"reembolso"|"retiro_efectivo"
+            "account_type": "corriente"|"ahorros"|"debito"|"credito"|"billetera"|"activo"|"empresa","afp_commission_type": "flujo"|"mixta","category_kind": "gasto"|"ingreso","currency_code": "PEN"|"USD","debt_kind": "tarjeta"|"cuotas"|"personal","income_event_kind": "sueldo"|"gratificacion"|"cts"|"utilidades"|"bono"|"asignacion_vacacional"|"empresa"|"otro","parse_status": "pendiente"|"ok"|"desconocido"|"error"|"ignorado","rule_match": "contiene"|"empieza_con"|"regex","tx_source": "gmail"|"manual"|"recurrente","tx_status": "confirmado"|"por_revisar"|"anulado","tx_type": "gasto"|"ingreso"|"transferencia"|"pago_tarjeta"|"pago_deuda"|"reembolso"|"retiro_efectivo"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -548,7 +548,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_type": ["corriente", "ahorros", "debito", "credito", "billetera", "activo", "empresa"],"afp_commission_type": ["flujo", "mixta"],"category_kind": ["gasto", "ingreso"],"currency_code": ["PEN", "USD"],"debt_kind": ["tarjeta", "cuotas", "personal"],"income_event_kind": ["sueldo", "gratificacion", "cts", "utilidades", "bono", "asignacion_vacacional", "empresa", "otro"],"parse_status": ["pendiente", "ok", "desconocido", "error"],"rule_match": ["contiene", "empieza_con", "regex"],"tx_source": ["gmail", "manual", "recurrente"],"tx_status": ["confirmado", "por_revisar", "anulado"],"tx_type": ["gasto", "ingreso", "transferencia", "pago_tarjeta", "pago_deuda", "reembolso", "retiro_efectivo"]
+            "account_type": ["corriente", "ahorros", "debito", "credito", "billetera", "activo", "empresa"],"afp_commission_type": ["flujo", "mixta"],"category_kind": ["gasto", "ingreso"],"currency_code": ["PEN", "USD"],"debt_kind": ["tarjeta", "cuotas", "personal"],"income_event_kind": ["sueldo", "gratificacion", "cts", "utilidades", "bono", "asignacion_vacacional", "empresa", "otro"],"parse_status": ["pendiente", "ok", "desconocido", "error", "ignorado"],"rule_match": ["contiene", "empieza_con", "regex"],"tx_source": ["gmail", "manual", "recurrente"],"tx_status": ["confirmado", "por_revisar", "anulado"],"tx_type": ["gasto", "ingreso", "transferencia", "pago_tarjeta", "pago_deuda", "reembolso", "retiro_efectivo"]
           }
         }
 } as const

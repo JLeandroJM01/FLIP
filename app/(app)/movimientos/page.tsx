@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TransactionFilters, type FilterOptions } from "@/components/transactions/filters";
 import { TransactionList } from "@/components/transactions/transaction-list";
+import { UnparsedEmails } from "@/components/transactions/unparsed-emails";
 import { requireUser } from "@/lib/auth";
 import { currentYearMonth, monthRange, parseYearMonth, yearMonthKey, type YearMonth } from "@/lib/dates";
-import { countPendingReview, getCatalogs, getMonthSummary, TRANSACTION_SELECT } from "@/lib/data";
+import { countPendingReview, getCatalogs, getMonthSummary, getUnparsedEmails, REVIEW_FILTER, TRANSACTION_SELECT } from "@/lib/data";
 import { formatMonth, formatPEN } from "@/lib/format";
 import type { TransactionRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,7 @@ export default async function MovementsPage({ searchParams }: PageProps<"/movimi
   const catalogs = await getCatalogs(supabase);
   let query = supabase.from("transactions").select(TRANSACTION_SELECT).order("occurred_at", { ascending: false });
   if (reviewTab) {
-    query = query.eq("status", "por_revisar"); // todos los meses
+    query = query.or(REVIEW_FILTER); // todos los meses
   } else {
     const { start, end } = monthRange(ym);
     query = query.gte("occurred_at", start.toISOString()).lt("occurred_at", end.toISOString());
@@ -39,10 +40,11 @@ export default async function MovementsPage({ searchParams }: PageProps<"/movimi
   if (tag && /^[a-z0-9_]+$/.test(tag)) query = query.contains("tags", [tag]);
   if (q) query = query.or(`merchant.ilike.%${q}%,note.ilike.%${q}%`);
 
-  const [{ data }, pending, summary] = await Promise.all([
+  const [{ data }, pending, summary, unparsed] = await Promise.all([
     query.limit(500),
     countPendingReview(supabase),
     reviewTab ? null : getMonthSummary(supabase, ym, catalogs),
+    reviewTab ? getUnparsedEmails(supabase) : [],
   ]);
   const transactions = (data ?? []) as unknown as TransactionRow[];
 
@@ -83,11 +85,19 @@ export default async function MovementsPage({ searchParams }: PageProps<"/movimi
         </Tab>
       </nav>
 
+      {reviewTab && (
+        <p className="text-sm text-muted-foreground">
+          Movimientos que FLIP no pudo decidir solo, o que llegaron sin categoría. Tócalos para confirmarlos.
+        </p>
+      )}
+
+      <UnparsedEmails emails={unparsed} />
+
       <TransactionFilters options={options} />
 
       {transactions.length === 0 ? (
         <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {reviewTab ? "No hay nada por revisar. 🎉" : "No hay movimientos con estos filtros."}
+          {reviewTab ? (unparsed.length ? "No hay movimientos por revisar." : "No hay nada por revisar. 🎉") : "No hay movimientos con estos filtros."}
         </p>
       ) : (
         <TransactionList transactions={transactions} />

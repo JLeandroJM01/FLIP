@@ -4,7 +4,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback"];
 // Llamadas de máquina a máquina: se autentican con su propia firma, no con sesión.
-const MACHINE_PATHS = ["/api/ingest"];
+const MACHINE_PATHS = ["/api/ingest", "/api/cron/diario"];
 
 /** Refresca la sesión en cada request y protege todas las rutas salvo el login. */
 export async function updateSession(request: NextRequest) {

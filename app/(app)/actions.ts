@@ -48,9 +48,34 @@ export async function saveTransaction(_prev: ActionState, formData: FormData): P
     occurred_at: (v.occurred_at ? fromLimaDateTimeLocal(v.occurred_at) : new Date()).toISOString(),
   };
 
-  const { error } = v.id
-    ? await supabase.from("transactions").update(row).eq("id", v.id)
-    : await supabase.from("transactions").insert({ ...row, source: "manual", status: "confirmado" });
+  let error;
+  let ruleMessage = "";
+  if (v.id) {
+    const { data: existing } = await supabase.from("transactions").select("status, merchant").eq("id", v.id).single();
+    // Guardar un movimiento "por revisar" es confirmarlo.
+    ({ error } = await supabase
+      .from("transactions")
+      .update({ ...row, ...(existing?.status === "por_revisar" && { status: "confirmado" as const }) })
+      .eq("id", v.id));
+    // SPEC 7: "¿Aplicar siempre a este comercio?" → crea la regla y categoriza los anteriores sin categoría.
+    if (!error && formData.get("apply_rule") === "1" && existing?.merchant && v.category_id) {
+      await supabase.from("merchant_rules").insert({
+        pattern: existing.merchant,
+        match_type: "contiene",
+        category_id: v.category_id,
+        tags: v.tags,
+        priority: 5,
+      });
+      await supabase
+        .from("transactions")
+        .update({ category_id: v.category_id })
+        .eq("merchant", existing.merchant)
+        .is("category_id", null);
+      ruleMessage = ` · Regla creada para ${existing.merchant}`;
+    }
+  } else {
+    ({ error } = await supabase.from("transactions").insert({ ...row, source: "manual", status: "confirmado" }));
+  }
   if (error) return { ok: false, message: "No se pudo guardar. Inténtalo de nuevo." };
 
   if (v.currency === "USD" && v.fx_rate) {
@@ -64,7 +89,7 @@ export async function saveTransaction(_prev: ActionState, formData: FormData): P
   }
 
   revalidatePath("/", "layout");
-  return { ok: true, savedAt: Date.now(), message: v.id ? "Cambios guardados" : "Registrado" };
+  return { ok: true, savedAt: Date.now(), message: (v.id ? "Cambios guardados" : "Registrado") + ruleMessage };
 }
 
 /** Anular, restaurar o confirmar un movimiento (los "por revisar"). */
@@ -105,4 +130,13 @@ export async function getFxRate(date: string): Promise<{ rate: number; source: s
     return { rate: quote.usdPen, source: "bcrp", date: quote.date };
   }
   return data ? { rate: Number(data.usd_pen), source: data.source, date: data.date } : null;
+}
+
+/** Un correo que la app no entendió y que no es un movimiento: se marca como ignorado. */
+export async function ignoreRawEmail(id: string): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("raw_emails").update({ parse_status: "ignorado", error: "ignorado a mano" }).eq("id", id);
+  if (error) return { ok: false, message: "No se pudo actualizar" };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }

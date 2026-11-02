@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ActionState } from "@/app/(app)/actions";
 import { CATEGORY_ICON_NAMES } from "@/components/category-icon-names";
 import { requireUser } from "@/lib/auth";
+import { processPendingEmails } from "@/lib/ingest/process";
 import { currentYearMonth } from "@/lib/dates";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -179,5 +180,7 @@ export async function saveManualFx(_prev: ActionState, fd: FormData): Promise<Ac
   if (!parsed.success) return fail(parsed.error);
   const { error } = await supabase.from("fx_rates").upsert({ ...parsed.data, source: "manual" });
   if (error) return { ok: false, message: "No se pudo guardar" };
-  return done("Tipo de cambio guardado");
+  // Reintenta los correos en dólares que esperaban un tipo de cambio.
+  const { ok } = await processPendingEmails(supabase);
+  return done(ok ? `Tipo de cambio guardado · ${ok} correo(s) procesado(s)` : "Tipo de cambio guardado");
 }

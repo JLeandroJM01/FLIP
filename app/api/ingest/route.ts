@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ingestPayloadSchema, isFresh, isValidSignature } from "@/lib/ingest/payload";
+import { processPendingEmails } from "@/lib/ingest/process";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // POST /api/ingest — recibe correos del Apps Script de Gmail (SPEC 3.2).
-// Fase 2, etapa 1: verifica la firma y guarda cada correo una sola vez en raw_emails
-// (parse_status = pendiente). Los parsers los procesan después.
+// Verifica la firma, guarda cada correo una sola vez en raw_emails y procesa los pendientes
+// (también los que fallaron antes): así un probarConexion() vacío reintenta todo.
 export async function POST(request: NextRequest) {
   const secret = process.env.INGEST_SECRET;
   if (!secret) return NextResponse.json({ error: "INGEST_SECRET no configurado" }, { status: 500 });
@@ -25,9 +26,12 @@ export async function POST(request: NextRequest) {
   if (!isFresh(parsed.data.sent_at)) return NextResponse.json({ error: "petición vencida" }, { status: 401 });
 
   const { messages } = parsed.data;
-  if (messages.length === 0) return NextResponse.json({ ok: true, received: 0, stored: 0 });
-
   const supabase = createAdminClient();
+  if (messages.length === 0) {
+    const summary = await processPendingEmails(supabase);
+    return NextResponse.json({ ok: true, received: 0, stored: 0, processing: summary });
+  }
+
   // Idempotente: si un correo llega dos veces, se queda el primero (SPEC 3.2).
   const { data, error } = await supabase
     .from("raw_emails")
@@ -45,5 +49,6 @@ export async function POST(request: NextRequest) {
     .select("id");
   if (error) return NextResponse.json({ error: "no se pudo guardar" }, { status: 500 });
 
-  return NextResponse.json({ ok: true, received: messages.length, stored: data?.length ?? 0 });
+  const summary = await processPendingEmails(supabase);
+  return NextResponse.json({ ok: true, received: messages.length, stored: data?.length ?? 0, processing: summary });
 }

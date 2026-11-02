@@ -7,9 +7,9 @@ import { QuickActions } from "@/components/home/quick-actions";
 import { TransactionList } from "@/components/transactions/transaction-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
-import { currentYearMonth, limaParts } from "@/lib/dates";
-import { countPendingReview, getAccountBalances, getCatalogs, getMonthSummary, getRecentTransactions, getSetting } from "@/lib/data";
-import { formatMonth, formatPEN } from "@/lib/format";
+import { currentYearMonth, limaDateKey, limaParts } from "@/lib/dates";
+import { countPendingReview, getAccountBalances, getCatalogs, getMonthSummary, getNextSalaryPayment, getRecentTransactions, getSetting } from "@/lib/data";
+import { formatMonth, formatPEN, formatShortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Inicio · FLIP" };
@@ -19,12 +19,13 @@ export default async function HomePage() {
   const now = new Date();
   const ym = currentYearMonth(now);
   const catalogs = await getCatalogs(supabase);
-  const [summary, recent, pending, budget, balances] = await Promise.all([
+  const [summary, recent, pending, budget, balances, nextSalary] = await Promise.all([
     getMonthSummary(supabase, ym, catalogs),
     getRecentTransactions(supabase, 5),
     countPendingReview(supabase),
     getSetting<number>(supabase, "monthly_budget", 1500),
     getAccountBalances(supabase, catalogs),
+    getNextSalaryPayment(supabase, limaDateKey(now)),
   ]);
 
   const cashAccountId = catalogs.accounts.find((a) => a.type === "billetera")?.id;
@@ -77,6 +78,12 @@ export default async function HomePage() {
               <p className="text-muted-foreground">Gastaste</p>
               <p className="tabular font-medium">{formatPEN(summary.spending)}</p>
             </div>
+            {nextSalary && (
+              <p className="col-span-2 text-xs text-muted-foreground">
+                Próximo sueldo: <span className="text-foreground">{formatShortDate(`${nextSalary.date}T12:00:00-05:00`)}</span> ·{" "}
+                <span className="tabular text-income">{formatPEN(nextSalary.amount)}</span> (estimado, se registra solo)
+              </p>
+            )}
             {summary.reimbursements > 0 && (
               <p className="col-span-2 text-xs text-muted-foreground">
                 Ya descontados {formatPEN(summary.reimbursements)} que te yapearon.

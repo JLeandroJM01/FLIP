@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
+**Versión:** 1.11 — 2 de noviembre de 2026 (Fase 3: la empresa sale del proyecto; orden de deudas, fechas de pago, AFP, meta 30%). 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -15,7 +15,7 @@ Una web personal **100% responsive** (se abre en el navegador y se acomoda al ce
 2. **Calcule el sueldo de Luz del Sur** (neto, AFP, impuesto, gratificaciones, CTS) y lo proyecte en el tiempo.
 3. **Ayude a salir de las deudas** con un plan y una fecha estimada.
 4. **Proyecte el ahorro para un departamento** en ~3 años (meta: noviembre 2029).
-5. Lleve los **ingresos de la empresa** (cuenta mancomunada, 50/50) en una vista aparte.
+5. ~~Ingresos de la empresa~~: **fuera del proyecto** (el usuario la maneja aparte; posible fase final opcional).
 6. Más adelante, use **machine learning** para clasificar gastos, predecir el gasto del mes y detectar gastos raros.
 
 **Principios**
@@ -92,15 +92,14 @@ Cuentas reales en la app del BCP: **Corriente soles**, **Ahorros soles**, **Dól
 | Visa Oro LATAM Pass ****6129 | Crédito (S/; los consumos en US$ se facturan en dólares) | "****6129" | Línea S/ 6,750. Pago el día 5 de cada mes |
 | CTS soles | Activo (no líquido) | Manual | Depósitos en mayo y noviembre |
 | Efectivo | Billetera | Retiros de cajero | Ver la regla de efectivo abajo |
-| Fondo AFP | Activo (no líquido) | Manual / calculado | El 25% puede ir a la cuota inicial del depa |
-| Empresa (mancomunada) | Aparte | Manual | Solo cuenta como tuyo lo que pasas a tu cuenta |
+| Fondo AFP | Activo (no líquido) | Manual / calculado | El 25% puede ir a la cuota inicial del depa. **~S/ 1,200 al 2 nov 2026** (usuario) |
 
 - **Tarjeta de débito ****4039:** no es una cuenta aparte; es el medio de pago de la cuenta de ahorros soles. Los consumos con "****4039" se registran en esa cuenta.
 - **Yape:** no es una cuenta aparte. Cobra de la cuenta de ahorros soles (débito ****4039), **no** de la tarjeta de crédito ****6129. Los Yapes que recibes también entran a la cuenta de ahorros soles.
 - "Clasica" es el nombre del producto en los correos de transferencias: **"Clasica ****2046" = cuenta corriente (sueldo)** y **"Clasica ****6060" = cuenta de ahorros**. Confirmado con correos reales: el pago de la tarjeta sale de "Cuenta sueldo ****2046" y el retiro con la débito ****4039 tiene "Cuenta de cargo ****6060".
 - Los consumos con débito ****4039 no dicen la cuenta: se asignan a la de ahorros por `card_last4`.
 
-**Saldos al 2 nov 2026** (lo que muestra la app del BCP): cuenta corriente soles (sueldo) **S/ 298.57** · cuenta de ahorros soles (Yape) **S/ 422.53** · cuenta en dólares **US$ 0** · CTS **S/ 0** · Visa Oro: **S/ 6,568.52 usados** (al 1 nov). Efectivo, Fondo AFP y Empresa: sin saldo registrado.
+**Saldos al 2 nov 2026** (lo que muestra la app del BCP): cuenta corriente soles (sueldo) **S/ 298.57** · cuenta de ahorros soles (Yape) **S/ 422.53** · cuenta en dólares **US$ 0** · CTS **S/ 0** · Visa Oro: **S/ 6,568.52 usados** (al 1 nov). Fondo AFP: ~S/ 1,200. Efectivo: sin saldo registrado.
 
 **Cómo se calcula el saldo:** saldo inicial + movimientos confirmados desde la fecha de ese saldo. Gastos, retiros y pagos de deuda restan; ingresos y reembolsos suman; transferencias y pagos de tarjeta salen de la cuenta de origen y entran a la de destino (pagar la tarjeta baja lo usado). En la tarjeta el saldo es negativo (lo usado de la línea). Si el saldo no cuadra con el banco, se corrige en Ajustes ("Saldo hoy") y desde ese momento se vuelve a contar.
 
@@ -171,7 +170,7 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 ## 6. Modelo de datos (Supabase)
 
 ```
-accounts            id, name, type(corriente|ahorros|debito|credito|billetera|activo|empresa), last4, card_last4, currency, credit_limit, payment_day, closing_day,
+accounts            id, name, type(corriente|ahorros|debito|credito|billetera|activo), last4, card_last4, currency, credit_limit, payment_day, closing_day,
                     opening_balance, opening_balance_at (saldo inicial y su fecha; ver sección 4)
 categories          id, name, icon, color, parent_id, kind(gasto|ingreso)
 tags                id, name
@@ -193,9 +192,7 @@ debt_payments       id, debt_id, transaction_id, amount, currency, paid_at
 income_profile      id, employer, start_date, end_date, monthly_gross, grat_days_base, eps(bool), afp_name, afp_fund, afp_commission_type(flujo|mixta),
                     pay_schedule (json, p. ej. [{"day":20,"share":0.5},{"day":5,"share":0.5,"month_offset":1}]),
                     profit_sharing_salaries (4.5), bonus_salaries_max (2.0)
-income_events       id, kind(sueldo|gratificacion|cts|utilidades|bono|asignacion_vacacional|empresa|otro), expected_date, expected_amount, actual_transaction_id
-company_invoices    id, date, client, invoice_no, base, igv, detraccion, renta_estimada, received_amount, my_share_pct (50)
-company_withdrawals id, date, amount, transaction_id
+income_events       id, kind(sueldo|gratificacion|cts|utilidades|bono|asignacion_vacacional|otro), expected_date, expected_amount, actual_transaction_id
 goals               id, name, target_amount, target_date, priority
 budgets             id, category_id, month, amount
 fx_rates            date, usd_pen
@@ -208,7 +205,7 @@ settings            uit, afp_rates, shared_prompt_threshold, etc.
 
 **Categorías de gasto:** Comida · Delivery · Salidas · Snacks · Transporte · Servicios (celular, internet) · Suscripciones · Compras · Salud (copagos EPS, farmacia) · Educación · Regalos · Pareja · Efectivo · Pago a persona · Comisiones bancarias · Intereses · Otros.
 
-**Etiquetas:** `#hormiga` (gastos chicos y repetidos), `#suscripcion`, `#fijo`, `#compartido`, `#impulsivo`, `#empresa`, `#deducible` (restaurantes con boleta electrónica a tu DNI, ver sección 9.4), `#usd`, `#pareja`, `#viaje`.
+**Etiquetas:** `#hormiga` (gastos chicos y repetidos), `#suscripcion`, `#fijo`, `#compartido`, `#impulsivo`, `#deducible` (restaurantes con boleta electrónica a tu DNI, ver sección 9.4), `#usd`, `#pareja`, `#viaje`.
 
 **Reglas de comercio iniciales:**
 
@@ -260,6 +257,8 @@ Caso típico: José paga con tarjeta una comida en grupo y sus amigos le van yap
 | Pago de los 6 días de octubre | Proporcional | ~S/ 833 neto (probablemente el 5 de noviembre) |
 
 A las utilidades y al bono no les descuentan AFP, pero sí impuesto (a tu nivel, ~14% de cada sol adicional).
+
+**Fechas de pago (usuario):** gratificación el **15** (julio y diciembre), CTS el **20** (mayo y noviembre), utilidades el **20 de abril**. Editables en Ajustes. Las utilidades de Prima AFP (marzo) y la asignación vacacional no tienen día fijo: se registran a mano.
 
 **Parámetros que se pueden cambiar en ajustes:** UIT (2026 = S/ 5,500), tasas de AFP, tipo de comisión, días de pago, sueldos de utilidades (4.5) y bono máximo (2.0).
 
@@ -313,6 +312,9 @@ Ciertos gastos con comprobante electrónico a tu DNI (restaurantes, hoteles, alq
 
 ## 11. Deudas
 
+**Plan del usuario (2 nov 2026):** 1° **Daniela** (urgente, con el pago del 5 nov), 2° **Walter** (todo a fines de noviembre, después del pago del 20), 3° **prepagar el crédito Yape** (mientras tanto sigue su cuota automática del día 28). La tarjeta no entra en el plan: se paga el total cada día 5 y **las compras en cuotas se pagan dentro de ese pago**. El 5 nov 2026 no hay pago de tarjeta; el monto del 5 dic se conoce con el estado de cuenta (mientras tanto, el estimado de la sección 10).
+
+
 | Deuda | Moneda | Saldo | Condiciones | Costo |
 |---|---|---|---|---|
 | Tarjeta Visa Oro (consumos por pagar) | S/ + US$ | S/ 6,568.52 | Pagar el total los días 5 | 0% si pagas el total |
@@ -330,16 +332,8 @@ Ciertos gastos con comprobante electrónico a tu DNI (restaurantes, hoteles, alq
 
 ---
 
-## 12. Empresa (cuenta mancomunada, 50/50)
-
-Vista aparte. Solo ingresos.
-
-- **Factura → lo que realmente queda:** monto facturado → − IGV 18% (es de SUNAT) → − detracción (va al Banco de la Nación y solo sirve para pagar impuestos) → − impuesto a la renta estimado (según el régimen) = **disponible** → **tu 50%**.
-- Saldo actual en la cuenta: ~S/ 3,500.
-- La plata de la empresa **no se suma a tus finanzas personales** hasta que la pasas a tu cuenta (`company_withdrawals` → ingreso personal con categoría "Empresa").
-- Gráfico de ingresos de la empresa por mes y acumulado.
-
----
+## 12. Empresa — fuera del proyecto
+El usuario la maneja aparte (2 nov 2026). No hay tablas, cuentas ni pantallas de la empresa en FLIP; si algún día se agrega, será una fase final opcional.
 
 ## 13. Pantallas
 
@@ -349,7 +343,6 @@ Vista aparte. Solo ingresos.
 4. **Deudas:** lista, plan y fecha de salida.
 5. **Ingresos:** perfil del sueldo, calendario de pagos (sueldo, gratificaciones, CTS), boletas reales vs estimadas.
 6. **Metas y proyección:** meta del depa con escenarios (ver sección 14) y simulador ("¿qué pasa si gasto S/ X al mes?").
-7. **Empresa:** facturas, retiros y tu 50%.
 8. **Análisis:** gasto por categoría, tendencia mensual, gastos hormiga, suscripciones detectadas, gastos raros.
 9. **Ajustes:** cuentas, categorías, reglas, parámetros (UIT, AFP, tipo de cambio, umbral de gasto compartido).
 
@@ -378,6 +371,8 @@ Las utilidades completas (~S/ 21,500 brutos cada abril desde 2028) son la mayor 
 La app hace este cálculo en vivo, mes a mes, con los datos reales. Los escenarios se muestran como un gráfico de líneas con bandas.
 
 ### 14.1 Meta: depa de S/ 400,000
+**Meta elegida (usuario): inicial del 30%** → 30% + 2% de gastos de cierre = **S/ 128,000** (la tabla de abajo redondea a ~S/ 130,000). Gasto de vida proyectado: S/ 1,500.
+
 
 Supuestos: Nuevo Crédito Mivivienda (S/ 400k está dentro del rango; verificar el tope 2026), Bono del Buen Pagador del tramo más alto (~S/ 7,900), gastos de cierre ~2% (~S/ 8,000; si es de segunda mano sumar alcabala), TEA ~8%, 25 años. El ahorro incluye sueldo, gratificaciones, utilidades, 50% de la CTS (retirable desde 2027) y 25% del fondo AFP (~S/ 2,000–3,000). Sin aumentos de sueldo.
 
@@ -427,7 +422,7 @@ Vercel Cron, todos los días a las 7:00 (Lima), `GET /api/cron/diario` con `Auth
 5. Correo de ejemplo de **abono de sueldo** (si BCP lo notifica).
 6. ~~Direcciones de los remitentes~~ (confirmadas, sección 5).
 7. En la app BCP, confirmar que las notificaciones estén en **"desde cualquier monto"** para crédito y débito.
-8. Empresa: **régimen tributario** y % de detracción de sus facturas.
+8. ~~Empresa~~ (fuera del proyecto).
 9. Depa: precio objetivo **S/ 400,000** (definido). Falta: nuevo o de segunda mano (cambia los gastos de cierre) y confirmar el tope 2026 del Nuevo Crédito Mivivienda.
 10. Gasto de vida mensual objetivo (para el presupuesto; por defecto S/ 1,500).
 11. ~~Cuentas ****2046 y ****6060~~ (confirmadas, sección 4).
@@ -449,7 +444,7 @@ Vercel Cron, todos los días a las 7:00 (Lima), `GET /api/cron/diario` con `Auth
 - *Listo cuando:* un consumo con la tarjeta aparece en la app en menos de 10 minutos, bien categorizado, y pagar la tarjeta no cuenta como gasto.
 
 **Fase 3 — Dinero inteligente (1–2 semanas)**
-- Gastos compartidos y "Te deben". Pantalla de tarjeta con el pago estimado. Deudas con su plan. Calendario de sueldo, gratificaciones y CTS. Meta del depa con escenarios. Vista de la empresa.
+- Gastos compartidos y "Te deben". Pantalla de tarjeta con el pago estimado. Deudas con su plan. Calendario de sueldo, gratificaciones y CTS. Meta del depa con escenarios.
 - *Listo cuando:* la app me dice cuánto pago el 5, cuánto me deben y en qué mes salgo de las deudas.
 
 **Fase 4 — ML y análisis (continuo, desde el mes 2–3 de datos)**

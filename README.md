@@ -106,6 +106,12 @@ En [script.google.com](https://script.google.com), con la cuenta que recibe los 
 
 Los correos procesados quedan con la etiqueta `finanzas/procesado` en Gmail.
 
+## Estado
+
+- **Fase 1** (base): ✅ login, esquema, registro rápido, Movimientos, Inicio, Ajustes, responsive.
+- **Fase 2** (Gmail automático): ✅ 14 formatos de correo, duplicados, bandeja "Por revisar", reglas de comercio, sueldo automático y tarea diaria. Pendiente de cierre: probar un consumo real, backfill de octubre (valida 6 lectores reconstruidos desde capturas) y una fuente de tipo de cambio que no bloquee a Vercel.
+- **Fase 3** (dinero inteligente): ✅ gastos compartidos y "Te deben", Tarjeta (pago estimado del 5, cuotas, alertas), Deudas (plan, fecha sin deudas, prepago), Ingresos (calendario, real vs estimado), Metas (proyección a nov 2029 con escenarios y simulador). La empresa quedó fuera del proyecto.
+
 ## Estado de la Fase 1
 
 Hecho:

@@ -16,7 +16,7 @@
 
 ## Estructura
 ```
-app/(app)/              pantallas con sesión: Inicio, movimientos/, metas/, mas/, ajustes/ (+ actions.ts)
+app/(app)/              pantallas con sesión: Inicio, movimientos/, tarjeta/, deudas/, ingresos/, metas/, mas/, ajustes/ (+ actions.ts)
 app/login, app/auth/    login con Google, callback y cierre de sesión
 app/api/ingest/         POST firmado (HMAC) desde el Apps Script; guarda raw_emails (idempotente) y los procesa
 app/api/cron/diario/    Vercel Cron (Bearer CRON_SECRET): sueldo automático, reintentos, borrar cuerpos > 90 días
@@ -86,6 +86,14 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - Nada de secretos en el código: `.env.local` (no se versiona) y `.env.example` como plantilla.
 - Variables: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_EMAIL`, `INGEST_SECRET`, `CRON_SECRET`, `ANTHROPIC_API_KEY` (opcional); para Supabase local, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
 - Solo últimos 4 dígitos de tarjetas. `raw_emails.body` se borra a los 90 días.
+
+## Fase 3 (dinero inteligente)
+- La **empresa está fuera del proyecto** (decisión del usuario): no agregar tablas, cuentas ni pantallas de empresa.
+- Proyección: `lib/finance/projection.ts` (motor puro) + `projection-input.ts` (arma la entrada; corre también en el navegador para el simulador) + `lib/projection-data.ts` (lee la base). Los tests comparan con la tabla de la sección 14 del SPEC (±3%).
+- Orden de deudas en `debts.payoff_order` (Daniela 1, Walter 2, Yape 3). La tarjeta y las compras en cuotas (`debts.external_op_id`) se pagan completas cada día 5, no van en el plan.
+- Gasto compartido: `transactions.shared_expense_id` en el gasto (cuenta solo `my_share`) y en el reembolso que lo paga (no resta otra vez). "Te deben" = Σ(amount_owed − amount_paid).
+- La CTS (cuenta `activo`) no suma al "Entró" del mes.
+- Colores de gráficos: validar con el skill dataviz (`validate_palette.js`); la serie principal es `#1fa874` sobre `#171717`.
 
 ## Ingesta de correos (Fase 2)
 - Texto plano de Gmail: los valores vienen como `Etiqueta *valor*`. `field()` distingue mayúsculas (la etiqueta "Desde" no es la frase "desde tu…") y admite `*` dentro del valor (`MP*ARUMA`).

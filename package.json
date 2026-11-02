@@ -3,14 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3100",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3100",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:start": "set -a && . ./.env.local && set +a && supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "set -a && . ./.env.local && set +a && supabase db reset",
+    "db:allow": "node --env-file=.env.local --env-file=.env.development.local scripts/allow-email.mjs",
+    "test:db": "node --env-file=.env.local --env-file=.env.development.local node_modules/vitest/vitest.mjs run --config vitest.db.config.mts",
+    "db:allow:cloud": "node --env-file=.env.local scripts/allow-email.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

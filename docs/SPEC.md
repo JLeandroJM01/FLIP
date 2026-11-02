@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.9 — 2 de noviembre de 2026 (sueldo como ingreso recurrente; formato 7 y US$ confirmados; hilos de Gmail). 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
+**Versión:** 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -22,7 +22,7 @@ Una web personal **100% responsive** (se abre en el navegador y se acomoda al ce
 - Primero el celular. Registrar un gasto a mano debe tomar menos de 5 segundos.
 - Todo se muestra en soles; los montos en dólares se convierten con el tipo de cambio del día y se guarda también el monto original.
 - **No contar nada dos veces:** pagar la tarjeta, mover plata entre cuentas propias o recibir el reembolso de un gasto compartido **no son gastos ni ingresos**.
-- Si la app no entiende un movimiento, va a una **bandeja "Por revisar"**; nunca se pierde ni se adivina.
+- Si la app no entiende un movimiento, va a una **bandeja "Por revisar"**; nunca se pierde ni se adivina. La bandeja muestra: los movimientos por_revisar, los gastos/ingresos que llegaron **sin categoría** (sí cuentan en los totales: el monto es seguro) y los correos que no se pudieron leer.
 
 ---
 
@@ -127,6 +127,10 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 | 10 | `Constancia de Transferencia a Terceros BCP` | **por_revisar** (a otra persona en el BCP: puede ser pago a persona o pago de deuda; si el nombre coincide con una persona, sugerirla) | Monto transferido, Enviado a (nombre + ****), Desde (Clasica ****), Mensaje, Fecha y hora, Número de operación |
 | 11 | `CONSTANCIA DE PASE A CUOTAS - BANCA MOVIL BCP` | **no es gasto nuevo** (el consumo ya se contó): crea una deuda en cuotas de la TC con sus intereses | Monto original, Monto de cuota aprox., Movimiento (comercio), Número de cuotas, TEA, Fecha y hora, Número de operación, tarjeta (****6129) |
 | 12 | `Constancia de Transferencia - Yape` con "¡Tu pago en Yape Promos fue exitoso!" | **gasto** (cuenta de ahorros, comercio "Yape Promos"); categoría por_revisar | Monto total, Fecha y hora, Número de operación Yape (no trae comercio) |
+| 13 | `Tu compra de … fue exitosa` (Yape) | **gasto** en la cuenta de Yape. Llega junto con el formato 12 por la misma compra: se fusionan y se queda el comercio real (p. ej. Norky's) | Comercio, Monto total, Fecha y hora `01/11/2026 a las 20:15` |
+| 14 | `Hola, te compartimos el comprobante de tu depósito recibido` (Yape) | **ingreso por_revisar** (puede ser un reembolso, un retiro de otra billetera o un ingreso) en la cuenta "**** 060" (= ****6060) | De, Monto `S/50`, Fecha `1 nov. 2026, 9:55 p. m.`, N° de cuenta, N° de operación, Mensajes |
+| — | `Se rechazó tu compra por fondos insuficientes` | **se ignora** (no hubo cobro; el cobro real llega después como formato 1) | — |
+| — | `Constancia de Configuración de Tarjeta en Banca Móvil BCP` | **se ignora** (no es un movimiento) | — |
 | ? | Cualquier otro de BCP o Yape | **por_revisar** + IA opcional | Texto completo |
 
 **Remitentes confirmados:** BCP = `notificaciones@notificacionesbcp.com.pe`; Yape = `notificaciones@yape.pe`. El asunto de BCP termina en " - Servicio de Notificaciones BCP" o empieza con "ENVIO AUTOMATICO - "; buscar por "contiene".
@@ -266,6 +270,8 @@ A las utilidades y al bono no les descuentan AFP, pero sí impuesto (a tu nivel,
 - Todo se ajusta solo cuando llega la primera boleta real (registrar el neto real y la app recalcula).
 
 ### 9.5 Registro automático del sueldo (ingreso recurrente)
+Impuesto del mes usado en el cálculo: `settings.monthly_tax_estimate` = 2026: 0 (y S/ 100 en diciembre) · 2027: S/ 339.77 · 2028: S/ 530 (valores de la sección 9; se ajustan con la boleta). Si el usuario corrige un pago, los siguientes del mismo tipo (adelanto/resto) usan el monto real.
+
 El BCP no avisa el abono del sueldo, así que la app lo registra sola:
 - Cada día de pago de `pay_schedule`, un proceso diario (Vercel Cron) crea el ingreso en la **cuenta corriente (sueldo)**, categoría Sueldo, `source = recurrente`, ya confirmado, y lo enlaza en `income_events.actual_transaction_id`.
 - Monto: el estimado de esta sección hasta que llegue la primera boleta real (17.2). Si el monto real es otro, el usuario lo corrige con un toque y la app usa el neto real desde ahí.
@@ -400,6 +406,9 @@ Supuestos: Nuevo Crédito Mivivienda (S/ 400k está dentro del rango; verificar 
 | Simulador de metas | Desde la fase 3 | Monte Carlo con la variación real de tus gastos → "70% de probabilidad de llegar a la meta en nov 2029" |
 
 ---
+
+## 15.1 Tarea diaria
+Vercel Cron, todos los días a las 7:00 (Lima), `GET /api/cron/diario` con `Authorization: Bearer CRON_SECRET`: registra el sueldo (recupera hasta 7 días si se saltó alguno), reintenta los correos con error (p. ej. sin tipo de cambio) y borra el texto de los correos de más de 90 días.
 
 ## 16. Seguridad y privacidad
 - Login solo con Google y solo con el correo permitido. RLS en todas las tablas.

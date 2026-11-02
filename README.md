@@ -84,6 +84,7 @@ En **Authentication → Providers → Google**: activado, con el Client ID y Sec
 | `ALLOWED_EMAIL` | tu Gmail |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret key de Supabase (solo la usa el servidor: ingesta de Gmail) |
 | `INGEST_SECRET` | `openssl rand -hex 32`; el mismo valor va en el Apps Script |
+| `CRON_SECRET` | `openssl rand -hex 32`; Vercel lo manda solo a la tarea diaria (`vercel.json`) |
 
 Después de agregar o cambiar variables hay que volver a desplegar (*Deployments → Redeploy*).
 

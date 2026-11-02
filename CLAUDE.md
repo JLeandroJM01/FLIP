@@ -18,25 +18,27 @@
 ```
 app/(app)/              pantallas con sesión: Inicio, movimientos/, metas/, mas/, ajustes/ (+ actions.ts)
 app/login, app/auth/    login con Google, callback y cierre de sesión
-app/api/ingest/         POST firmado (HMAC) desde el Apps Script; guarda raw_emails (idempotente)
+app/api/ingest/         POST firmado (HMAC) desde el Apps Script; guarda raw_emails (idempotente) y los procesa
+app/api/cron/diario/    Vercel Cron (Bearer CRON_SECRET): sueldo automático, reintentos, borrar cuerpos > 90 días
 proxy.ts                (ex middleware) refresca la sesión y bloquea correos no permitidos
 components/ui/          shadcn (botones táctiles: size="touch" | "icon-touch", ≥ 44 px)
 components/shell/       barra lateral (md+) y barra inferior (celular)
 components/quick-add/   registro rápido (hoja inferior en celular, diálogo en md+)
 components/transactions lista de movimientos (tarjetas < lg, tabla en lg)
 lib/supabase/           clientes (browser, server, proxy, admin = service role) y database.types.ts (npm run db:types)
-lib/ingest/             contrato del Apps Script: firma HMAC y esquema del payload
+lib/ingest/             payload.ts (firma HMAC), match.ts (cuenta, reglas, personas, duplicados — puro),
+                        process.ts (raw_emails → movimientos), recurring.ts (sueldo automático)
 lib/data.ts             consultas del servidor (catálogos, resumen del mes…)
 lib/finance/            funciones PURAS: AFP, quinta, gratificación, utilidades, neto, resumen del mes
 lib/transaction-input.ts validación (zod) del formulario de movimientos
 lib/fx/bcrp.ts          tipo de cambio del BCRP
 lib/format.ts, dates.ts formato es-PE (S/, US$, fechas armadas a mano) y hora de Lima
-lib/parsers/            un archivo por formato de correo + index.ts (Fase 2)
+lib/parsers/            lectores de correos (index.ts: un parser por asunto), text/money/dates.ts; PARSER_VERSION
 supabase/migrations/    esquema (sección 6) y RLS; supabase/seed.sql datos iniciales
 scripts/                allow-email.mjs
-tests/                  Vitest (tests/db = RLS contra Supabase local); tests/fixtures/emails (Fase 2)
+tests/                  Vitest (tests/db = contra Supabase local: RLS, ingesta, sueldo); tests/fixtures/emails (anonimizados)
 e2e/                    Playwright (sesión local en auth.setup.ts; capturas en e2e/screenshots/)
-apps-script/Code.gs     script de Gmail (Fase 2)
+apps-script/Code.gs     script de Gmail (se pega a mano en script.google.com)
 ```
 
 ## Comandos
@@ -82,8 +84,15 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - Login solo con Google y solo para `ALLOWED_EMAIL`. RLS en todas las tablas.
 - `lib/supabase/admin.ts` (service role, salta RLS) solo en procesos sin sesión: `/api/ingest` y tareas programadas. Esas rutas van en `MACHINE_PATHS` del proxy y se autentican con su propia firma.
 - Nada de secretos en el código: `.env.local` (no se versiona) y `.env.example` como plantilla.
-- Variables: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_EMAIL`, `INGEST_SECRET`, `ANTHROPIC_API_KEY` (opcional); para Supabase local, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
+- Variables: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_EMAIL`, `INGEST_SECRET`, `CRON_SECRET`, `ANTHROPIC_API_KEY` (opcional); para Supabase local, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
 - Solo últimos 4 dígitos de tarjetas. `raw_emails.body` se borra a los 90 días.
+
+## Ingesta de correos (Fase 2)
+- Texto plano de Gmail: los valores vienen como `Etiqueta *valor*`. `field()` distingue mayúsculas (la etiqueta "Desde" no es la frase "desde tu…") y admite `*` dentro del valor (`MP*ARUMA`).
+- Nunca adivinar: si falta monto, fecha o cuenta, el correo queda `desconocido`/`error` y se ve en "Por revisar".
+- Duplicados (match.ts): mismo nº de operación, o mismo monto+cuenta ±10 min de **otro** formato o manual. Dos consumos iguales del mismo formato con operaciones distintas NO son duplicados.
+- Fixtures nuevos: solo anonimizados (sin nombres, teléfonos ni códigos reales). `ejemplos/` (capturas reales) está en .gitignore.
+- Si cambia la lógica de un parser, subir `PARSER_VERSION`.
 
 ## Gotchas
 - Fechas y horas que se renderizan en Client Components: usar `lib/format.ts` (armadas a mano). `Intl` da textos distintos en Node y Chrome ("a. m." con espacio duro) y rompe la hidratación.

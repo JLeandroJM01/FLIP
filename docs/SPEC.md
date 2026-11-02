@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.7 — 2 de noviembre de 2026 (saldos de las cuentas). 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
+**Versión:** 1.9 — 2 de noviembre de 2026 (sueldo como ingreso recurrente; formato 7 y US$ confirmados; hilos de Gmail). 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -70,6 +70,7 @@ Gmail ──(Apps Script, cada 5 min)──► POST /api/ingest  (firma con secr
 - Búsqueda: `(from:"BCP Notificaciones" OR from:"YAPE Notificaciones") newer_than:3d -label:finanzas/procesado` (confirmar los correos exactos de los remitentes, ver sección 17).
 - Por cada correo: manda `{gmail_message_id, from, subject, date, plain_body}` al endpoint con el header `X-Ingest-Signature` (HMAC-SHA256 del body con un secreto).
 - Si responde 200, le pone la etiqueta `finanzas/procesado`. Si falla, reintenta en la siguiente vuelta.
+- **Hilos de Gmail:** Gmail agrupa en una misma conversación correos con el mismo asunto (p. ej. dos consumos con la tarjeta de crédito), y las etiquetas se ponen por conversación. El script debe recorrer **cada mensaje** de cada conversación y mandarlos todos; el endpoint descarta los repetidos por `gmail_message_id`. Así no se pierde un consumo nuevo que llega a una conversación ya etiquetada.
 - Función aparte `backfill(dias)` para cargar el historial la primera vez (por ejemplo, 90 días).
 
 ### 3.2 Endpoint `/api/ingest`
@@ -85,8 +86,8 @@ Cuentas reales en la app del BCP: **Corriente soles**, **Ahorros soles**, **Dól
 
 | Cuenta | Tipo | Identificador en correos | Notas |
 |---|---|---|---|
-| Cuenta corriente soles (sueldo) | Corriente | "Cuenta sueldo" (por confirmar) | Aquí entra el sueldo; desde aquí se paga la tarjeta |
-| Cuenta de ahorros soles | Ahorros | ****? (por confirmar) | **Está asociada a Yape** y a la tarjeta de débito ****4039. Los Plin salen de aquí |
+| Cuenta corriente soles (sueldo) | Corriente | "Cuenta sueldo ****2046" (pago de tarjeta) o "Clasica ****2046" (transferencias) | Aquí entra el sueldo; desde aquí se paga la tarjeta |
+| Cuenta de ahorros soles | Ahorros | "Clasica ****6060"; es la "Cuenta de cargo ****6060" de la tarjeta de débito | **Está asociada a Yape** y a la tarjeta de débito ****4039. Los Plin salen de aquí |
 | Cuenta en dólares | Ahorros (US$) | ****? (por confirmar) | También asociada a la tarjeta de débito ****4039, solo por si acaso |
 | Visa Oro LATAM Pass ****6129 | Crédito (S/; los consumos en US$ se facturan en dólares) | "****6129" | Línea S/ 6,750. Pago el día 5 de cada mes |
 | CTS soles | Activo (no líquido) | Manual | Depósitos en mayo y noviembre |
@@ -96,7 +97,8 @@ Cuentas reales en la app del BCP: **Corriente soles**, **Ahorros soles**, **Dól
 
 - **Tarjeta de débito ****4039:** no es una cuenta aparte; es el medio de pago de la cuenta de ahorros soles. Los consumos con "****4039" se registran en esa cuenta.
 - **Yape:** no es una cuenta aparte. Cobra de la cuenta de ahorros soles (débito ****4039), **no** de la tarjeta de crédito ****6129. Los Yapes que recibes también entran a la cuenta de ahorros soles.
-- Los correos mencionan "Clasica ****2046" y "Clasica ****6060": falta confirmar a cuál de las cuentas de arriba corresponde cada una (sección 17).
+- "Clasica" es el nombre del producto en los correos de transferencias: **"Clasica ****2046" = cuenta corriente (sueldo)** y **"Clasica ****6060" = cuenta de ahorros**. Confirmado con correos reales: el pago de la tarjeta sale de "Cuenta sueldo ****2046" y el retiro con la débito ****4039 tiene "Cuenta de cargo ****6060".
+- Los consumos con débito ****4039 no dicen la cuenta: se asignan a la de ahorros por `card_last4`.
 
 **Saldos al 2 nov 2026** (lo que muestra la app del BCP): cuenta corriente soles (sueldo) **S/ 298.57** · cuenta de ahorros soles (Yape) **S/ 422.53** · cuenta en dólares **US$ 0** · CTS **S/ 0** · Visa Oro: **S/ 6,568.52 usados** (al 1 nov). Efectivo, Fondo AFP y Empresa: sin saldo registrado.
 
@@ -122,20 +124,39 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 | 7 | `Tu yapeo de servicio ha sido confirmado` | **gasto** (Yape) | Monto total, Fecha y hora, Nº de operación Yape, Empresa (p. ej. Metropolitano y Corredores), Servicio |
 | 8 | `Realizaste un retiro en un Agente BCP` (y probablemente uno parecido para cajero) | **retiro_efectivo** → gasto "Efectivo" | Monto retirado, Comisión por operación ("GRATIS" = 0), Fecha y hora, Número de Tarjeta de Débito |
 | 9 | `Realizamos una devolución de una operación a tu Tarjeta de Débito BCP` | **devolución**: busca el movimiento original (mismo comercio y monto, últimos 30 días) y lo anula. Si no lo encuentra → ingreso por_revisar | Total devuelto, Fecha y hora, Número de Tarjeta, Nombre del Comercio (p. ej. `PLIN-NOMBRE`) |
+| 10 | `Constancia de Transferencia a Terceros BCP` | **por_revisar** (a otra persona en el BCP: puede ser pago a persona o pago de deuda; si el nombre coincide con una persona, sugerirla) | Monto transferido, Enviado a (nombre + ****), Desde (Clasica ****), Mensaje, Fecha y hora, Número de operación |
+| 11 | `CONSTANCIA DE PASE A CUOTAS - BANCA MOVIL BCP` | **no es gasto nuevo** (el consumo ya se contó): crea una deuda en cuotas de la TC con sus intereses | Monto original, Monto de cuota aprox., Movimiento (comercio), Número de cuotas, TEA, Fecha y hora, Número de operación, tarjeta (****6129) |
+| 12 | `Constancia de Transferencia - Yape` con "¡Tu pago en Yape Promos fue exitoso!" | **gasto** (cuenta de ahorros, comercio "Yape Promos"); categoría por_revisar | Monto total, Fecha y hora, Número de operación Yape (no trae comercio) |
 | ? | Cualquier otro de BCP o Yape | **por_revisar** + IA opcional | Texto completo |
+
+**Remitentes confirmados:** BCP = `notificaciones@notificacionesbcp.com.pe`; Yape = `notificaciones@yape.pe`. El asunto de BCP termina en " - Servicio de Notificaciones BCP" o empieza con "ENVIO AUTOMATICO - "; buscar por "contiene".
+
+**Detalles vistos en los correos reales (2 nov 2026):**
+- Formato 3 trae además: Enviado a (nombre + ****), Banco destino, Moneda, Tipo de envío, Canal y Número de operación.
+- Formato 5 puede ser **en dólares**: Monto pagado `$ 188.41`, Tipo de cambio `S/ 3.4990`, Total cobrado al tipo de cambio `S/ 659.25` (sale de la cuenta en soles). Guardar el monto en US$ con su tipo de cambio y el total en soles.
+- Formato 6 trae un detalle por documento (Doc. pago, Vencimiento `05/11/2026`, Importe, Cargo fijo, Mora) y "Código de usuario" (dato personal: no guardarlo en fixtures).
+- Formato 8 trae "Cuenta de cargo ****6060", Canal y Código de agente.
+- Formato 9 (devolución) coincide con lo descrito: Total devuelto, Número de Tarjeta, Nombre del Comercio (`PLIN-…`), Número de operación.
+- En los correos de débito, el nombre después de `PLIN-` viene **recortado** (p. ej. "PLIN-ADDERLY ARMANDO DA"): cruzar personas por "empieza con".
 
 **Yape está asociado a la cuenta de ahorros soles (tarjeta de débito ****4039), no a la tarjeta de crédito.** Un Yape enviado a una persona llega como **consumo con tarjeta** (según el usuario; se asume formato 2, débito ****4039; confirmar con el primer correo real). Si llegan dos correos por la misma operación (uno del BCP y otro de Yape), se fusionan en un solo movimiento (mismo monto, ± 10 minutos): se queda el del BCP y se le agrega el detalle de Yape (destinatario, servicio).
 
-**Falta ejemplo de:** abono de sueldo (si BCP lo notifica). Hasta que llegue, cae en "Por revisar".
+**Abono de sueldo:** el BCP no lo notifica por correo (según el usuario). El sueldo **no** espera un correo ni va a "Por revisar": se registra solo como ingreso recurrente (sección 9.5). Si algún día llega un correo de abono, se cruza con ese ingreso (monto parecido, mismo día) en vez de crear otro.
+
+**Yape a una persona:** llega como **consumo con tarjeta de débito** (formato 2), igual que un Plin (`PLIN-NOMBRE`). Confirmado por el usuario.
+
+**Confirmado con correos reales:** formato 7 (`Tu yapeo de servicio ha sido confirmado`: Monto total, Yapero(a), Fecha y hora `02 Nov, 2026 - 01:58 pm`, Nº de operación Yape, Empresa `Metropolitano y Corredores`, Servicio `Recarga de Tarjetas`, Código de usuario; sale de la cuenta de ahorros → Transporte por la regla "Metropolitano") y consumo en dólares con la tarjeta de crédito (formato 1 con `$ 0.45` en `APPLE.COM/BILL`).
 
 **Formatos de fecha encontrados (cada parser debe aceptar el suyo):**
 - `01 de noviembre de 2026 - 02:31 PM`
 - `22 de Octubre de 2026 - 11:50 AM` (mes con mayúscula)
 - `Lunes, 26 Octubre 2026 - 08:22 A. M.`
 - `30 Oct, 2026 - 07:37 am`
+- `01 nov. 2026 - 08:15 p. m.` (Yape: mes abreviado con punto y "p. m.")
+- `02/11/2026 09:44` (pase a cuotas: dd/mm/aaaa y 24 horas)
 - `27 de octubre de 2026 - 19:40 PM` ⚠️ **hora de 24 horas con "PM"**: si la hora es mayor que 12, ignorar AM/PM.
 
-**Montos:** `S/ 1,234.56` o `$ 3.84`. Quitar las comas de miles y guardar la moneda.
+**Montos:** `S/ 1,234.56`, `S/1,060.00` (sin espacio) o `$ 3.84`. Quitar las comas de miles y guardar la moneda. "GRATIS" = 0.
 
 **Duplicado conocido a revisar:** un pago de servicio con la TC (formato 6) puede generar también un correo de consumo (formato 1). Se resuelve con la regla de duplicados de la sección 3.2.
 
@@ -243,6 +264,16 @@ A las utilidades y al bono no les descuentan AFP, pero sí impuesto (a tu nivel,
 - **Impuesto 2027:** las utilidades de Prima (marzo) suben el impuesto del año a ~S/ 4,080 (~S/ 340/mes). Prima retiene algo al pagarlas; el resto lo ajusta Luz del Sur si le informas.
 - A la gratificación no le descuentan AFP, solo impuesto.
 - Todo se ajusta solo cuando llega la primera boleta real (registrar el neto real y la app recalcula).
+
+### 9.5 Registro automático del sueldo (ingreso recurrente)
+El BCP no avisa el abono del sueldo, así que la app lo registra sola:
+- Cada día de pago de `pay_schedule`, un proceso diario (Vercel Cron) crea el ingreso en la **cuenta corriente (sueldo)**, categoría Sueldo, `source = recurrente`, ya confirmado, y lo enlaza en `income_events.actual_transaction_id`.
+- Monto: el estimado de esta sección hasta que llegue la primera boleta real (17.2). Si el monto real es otro, el usuario lo corrige con un toque y la app usa el neto real desde ahí.
+- Montos estimados (pendiente confirmar el reparto en 17.2):
+  - **5 nov 2026:** 6 días de octubre = 4,785 × 6/30 − AFP 12.97% = **S/ 832.88**.
+  - **Cada 20:** adelanto del mes = 50% del bruto = **S/ 2,392.50** (sin descuentos).
+  - **Cada 5:** resto del mes anterior con los descuentos = bruto − adelanto − AFP − impuesto del mes (nov 2026: 4,785 − 2,392.50 − 620.61 = **S/ 1,771.89**).
+- Gratificaciones, CTS y utilidades se registran igual en su fecha (calendario de la Fase 3).
 
 ### 9.2 Calculadora de impuesto (para el código)
 Renta neta anual = bruto anual − 7 UIT. Tramos: 8% hasta 5 UIT · 14% de 5 a 20 · 17% de 20 a 35 · 20% de 35 a 45 · 30% más de 45 UIT.
@@ -383,15 +414,16 @@ Supuestos: Nuevo Crédito Mivivienda (S/ 400k está dentro del rango; verificar 
 1. Confirmar en la primera boleta que el descuento de AFP sea 12.97% (S/ 620.61).
 2. La **primera boleta real** (para ajustar el neto y confirmar cómo se reparte el pago entre el 20 y el 5).
 3. Monto real de la **liquidación de Prima AFP** y del certificado de rentas y retenciones (para afinar el impuesto de 2026).
-4. **Fecha de cierre** exacta de la tarjeta y si hay **compras en cuotas** (estado de cuenta / pestaña "En cuotas").
+4. **Fecha de cierre** exacta de la tarjeta. Compras en cuotas: **sí hay** (2 nov 2026: S/ 1,060 en MUSIC ENTERTAINMENT pasado a 3 cuotas de ~S/ 408.23, TEA 91.89%); revisar si hay otras en el estado de cuenta.
 5. Correo de ejemplo de **abono de sueldo** (si BCP lo notifica).
-6. Las direcciones de correo exactas de los remitentes "BCP Notificaciones" y "YAPE Notificaciones".
+6. ~~Direcciones de los remitentes~~ (confirmadas, sección 5).
 7. En la app BCP, confirmar que las notificaciones estén en **"desde cualquier monto"** para crédito y débito.
 8. Empresa: **régimen tributario** y % de detracción de sus facturas.
 9. Depa: precio objetivo **S/ 400,000** (definido). Falta: nuevo o de segunda mano (cambia los gastos de cierre) y confirmar el tope 2026 del Nuevo Crédito Mivivienda.
 10. Gasto de vida mensual objetivo (para el presupuesto; por defecto S/ 1,500).
-11. **Antes de la Fase 2:** a qué cuenta corresponde "Clasica ****2046" y "Clasica ****6060" (aparecen en los correos de transferencias, formatos 3 y 4). Hasta entonces los `last4` de las cuentas quedan vacíos (no se inventan).
-12. Confirmar con el primer correo real que un Yape a una persona llega como consumo con débito ****4039 (formato 2).
+11. ~~Cuentas ****2046 y ****6060~~ (confirmadas, sección 4).
+12. ~~Yape a una persona y formato 7~~ (confirmados, sección 5).
+13. Día de pago de la **gratificación de diciembre** (y de julio).
 
 ---
 

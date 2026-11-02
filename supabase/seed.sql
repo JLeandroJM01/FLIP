@@ -1,11 +1,10 @@
--- FLIP — datos iniciales (docs/SPEC.md v1.6). Solo datos del SPEC; lo que no se
--- conoce queda en null (p. ej. los últimos 4 dígitos de las cuentas, sección 17).
+-- FLIP — datos iniciales (docs/SPEC.md). Solo datos del SPEC; lo que no se conoce queda en null.
 -- El correo permitido NO va aquí: se carga desde ALLOWED_EMAIL con `npm run db:allow`.
 
 -- ───────── Cuentas (sección 4) ─────────
 insert into public.accounts (name, type, last4, card_last4, currency, credit_limit, payment_day, notes, sort_order) values
-  ('Cuenta corriente soles', 'corriente', null, null,   'PEN', null, null, 'Aquí entra el sueldo; desde aquí se paga la tarjeta', 1),
-  ('Cuenta de ahorros soles', 'ahorros',  null, '4039', 'PEN', null, null, 'Asociada a Yape y a la tarjeta de débito ****4039. Los Plin salen de aquí', 2),
+  ('Cuenta corriente soles', 'corriente', '2046', null, 'PEN', null, null, 'Aquí entra el sueldo; desde aquí se paga la tarjeta', 1),
+  ('Cuenta de ahorros soles', 'ahorros',  '6060', '4039', 'PEN', null, null, 'Asociada a Yape y a la tarjeta de débito ****4039. Los Plin salen de aquí', 2),
   ('Cuenta en dólares',       'ahorros',  null, null,   'USD', null, null, 'También asociada a la tarjeta de débito ****4039, por si acaso', 3),
   ('Visa Oro LATAM Pass',     'credito',  '6129', null, 'PEN', 6750, 5,    'Pago el día 5 de cada mes. Los consumos en US$ se facturan en dólares', 4),
   ('Efectivo',                'billetera', null, null,  'PEN', null, null, 'El retiro cuenta como gasto "Efectivo"; los gastos en efectivo se descuentan de ahí', 5),

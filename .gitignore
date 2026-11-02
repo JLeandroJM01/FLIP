@@ -37,3 +37,6 @@ npm-debug.log*
 
 # sesión local de Playwright
 e2e/.auth/
+
+# capturas reales de correos (datos personales): no se versionan
+ejemplos/

@@ -37,7 +37,7 @@ test("Me yapearon resta del gastado; un ingreso suma al neto", async ({ page }) 
   await page.getByText("Salidas", { exact: true }).click();
   await page.getByLabel("Nota (opcional)").fill(`${E2E_MARK} cena grupal`);
   await page.getByRole("button", { name: "Guardar gasto" }).click();
-  await expect(page.getByText(`${E2E_MARK} cena grupal`)).toBeVisible();
+  await expect(page.getByText(`${E2E_MARK} cena grupal`, { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Me yapearon" }).click();
   await page.getByLabel("Monto").fill("60");

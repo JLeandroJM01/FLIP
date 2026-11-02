@@ -41,7 +41,7 @@ export function BottomNav({ pendingReview }: { pendingReview: number }) {
           href="/mas"
           label="Más"
           icon={Menu}
-          active={isActive(pathname, "/mas") || isActive(pathname, "/ajustes")}
+          active={["/mas", "/ajustes", "/tarjeta", "/deudas", "/ingresos"].some((h) => isActive(pathname, h))}
         />
       </div>
     </nav>

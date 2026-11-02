@@ -9,8 +9,7 @@ insert into public.accounts (name, type, last4, card_last4, currency, credit_lim
   ('Visa Oro LATAM Pass',     'credito',  '6129', null, 'PEN', 6750, 5,    'Pago el día 5 de cada mes. Los consumos en US$ se facturan en dólares', 4),
   ('Efectivo',                'billetera', null, null,  'PEN', null, null, 'El retiro cuenta como gasto "Efectivo"; los gastos en efectivo se descuentan de ahí', 5),
   ('CTS soles',               'activo',   null, null,   'PEN', null, null, 'Depósitos en mayo y noviembre', 6),
-  ('Fondo AFP',               'activo',   null, null,   'PEN', null, null, 'Prima, Fondo 2. Hasta el 25% puede ir a la cuota inicial del depa', 7),
-  ('Empresa (mancomunada)',   'empresa',  null, null,   'PEN', null, null, 'Solo cuenta como tuyo lo que pasas a tu cuenta', 8);
+  ('Fondo AFP',               'activo',   null, null,   'PEN', null, null, 'Prima, Fondo 2. Hasta el 25% puede ir a la cuota inicial del depa', 7);
 
 -- Saldos (SPEC 4): lo que el usuario veía en su app del BCP al cargar FLIP (2 nov 2026).
 -- La tarjeta usa el dato del SPEC: S/ 6,568.52 usados al 1 nov 2026 (saldo negativo).
@@ -18,6 +17,7 @@ update public.accounts set opening_balance = 298.57, opening_balance_at = now() 
 update public.accounts set opening_balance = 422.53, opening_balance_at = now() where name = 'Cuenta de ahorros soles';
 update public.accounts set opening_balance = 0,      opening_balance_at = now() where name = 'Cuenta en dólares';
 update public.accounts set opening_balance = 0,      opening_balance_at = now() where name = 'CTS soles';
+update public.accounts set opening_balance = 1200,   opening_balance_at = now() where name = 'Fondo AFP';
 update public.accounts set opening_balance = -6568.52, opening_balance_at = '2026-11-01 00:00:00-05' where name = 'Visa Oro LATAM Pass';
 
 -- ───────── Categorías (sección 7) ─────────
@@ -45,13 +45,12 @@ insert into public.categories (name, icon, color, kind, sort_order) values
   ('Utilidades',            'trending-up',    '#22c55e', 'ingreso', 4),
   ('Bono',                  'award',          '#4ade80', 'ingreso', 5),
   ('Asignación vacacional', 'tree-palm',      '#6ee7b7', 'ingreso', 6),
-  ('Empresa',               'building-2',     '#14b8a6', 'ingreso', 7),
-  ('Otro',                  'circle-plus',    '#9a9a9a', 'ingreso', 8);
+  ('Otro',                  'circle-plus',    '#9a9a9a', 'ingreso', 7);
 
 -- ───────── Etiquetas (sección 7) ─────────
 insert into public.tags (name) values
   ('hormiga'), ('suscripcion'), ('fijo'), ('compartido'), ('impulsivo'),
-  ('empresa'), ('deducible'), ('usd'), ('pareja'), ('viaje');
+  ('deducible'), ('usd'), ('pareja'), ('viaje');
 
 -- ───────── Reglas de comercio (sección 7) ─────────
 -- "Retiro de cajero → Efectivo" no es una regla de comercio: lo asigna el parser
@@ -88,6 +87,12 @@ values
   ('Walter', 'personal', (select id from public.people where name = 'Walter'), null,
    'PEN', 2000, 2000, null, null, 0, null, 0,
    'Sin interés');
+
+-- Orden de pago (usuario): Daniela → Walter → prepagar el crédito Yape.
+update public.debts set payoff_order = 1 where name = 'Daniela';
+update public.debts set payoff_order = 2 where name = 'Walter';
+update public.debts set payoff_order = 3 where name = 'Crédito Yape';
+update public.debts set auto_debit_account_id = (select id from public.accounts where name = 'Cuenta de ahorros soles') where name = 'Crédito Yape';
 
 -- ───────── Perfil de ingresos (sección 9) ─────────
 insert into public.income_profile (employer, start_date, monthly_gross, grat_days_base, grat_bonus_rate, eps,

@@ -1,28 +1,28 @@
-import { Target } from "lucide-react";
 import type { Metadata } from "next";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { GoalsView, type DepaParams } from "@/components/goals/goals-view";
+import { requireUser } from "@/lib/auth";
+import { getCatalogs, getSettings } from "@/lib/data";
+import { limaDateKey } from "@/lib/dates";
+import { loadProjectionContext } from "@/lib/projection-data";
 
 export const metadata: Metadata = { title: "Metas · FLIP" };
 
-export default function GoalsPage() {
+export default async function GoalsPage() {
+  const { supabase } = await requireUser();
+  const catalogs = await getCatalogs(supabase);
+  const [ctx, settings] = await Promise.all([loadProjectionContext(supabase, catalogs, limaDateKey(new Date())), getSettings(supabase)]);
+  const depa = settings.depa as DepaParams;
+  const living = Number(((settings.projection ?? {}) as { living?: number }).living ?? 1500);
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6 lg:p-8">
-      <header>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6 lg:p-8">
+      <header className="space-y-1">
+        <p className="text-sm text-muted-foreground">
+          Depa de {new Intl.NumberFormat("es-PE").format(depa.price)} · inicial {Math.round(depa.down_pct * 100)}% · crédito a {depa.years} años, TEA {Math.round(depa.tea * 100)}%
+        </p>
         <h1 className="text-2xl font-semibold tracking-tight">Metas y proyección</h1>
       </header>
-      <Card className="border-dashed bg-transparent">
-        <CardHeader>
-          <Target className="size-8 text-primary" />
-          <CardTitle>Llega en la Fase 3</CardTitle>
-          <CardDescription>
-            Aquí verás la meta del depa con escenarios, la inicial acumulada, la fecha estimada y la cuota estimada
-            frente a tu ingreso neto.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Mientras tanto, registra tus gastos: la proyección usará tus datos reales.
-        </CardContent>
-      </Card>
+      {ctx ? <GoalsView ctx={ctx} depa={depa} defaultLiving={living} /> : <p className="text-muted-foreground">Falta el perfil de ingresos.</p>}
     </div>
   );
 }

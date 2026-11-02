@@ -91,50 +91,16 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"company_invoices": {
-                  Row: {
-                    "base": number,"client": string,"date": string,"detraccion": number,"id": string,"igv": number,"invoice_no": string | null,"my_share_pct": number,"received_amount": number | null,"renta_estimada": number
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "base": number,"client": string,"date": string,"detraccion"?: number,"id"?: string,"igv"?: number,"invoice_no"?: string | null,"my_share_pct"?: number,"received_amount"?: number | null,"renta_estimada"?: number
-                  }
-                  Update: {
-                    "base"?: number,"client"?: string,"date"?: string,"detraccion"?: number,"id"?: string,"igv"?: number,"invoice_no"?: string | null,"my_share_pct"?: number,"received_amount"?: number | null,"renta_estimada"?: number
-                  }
-                  Relationships: [
-                    
-                  ]
-                },"company_withdrawals": {
-                  Row: {
-                    "amount": number,"date": string,"id": string,"transaction_id": string | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "amount": number,"date": string,"id"?: string,"transaction_id"?: string | null
-                  }
-                  Update: {
-                    "amount"?: number,"date"?: string,"id"?: string,"transaction_id"?: string | null
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "company_withdrawals_transaction_id_fkey"
-      columns: ["transaction_id"]
-isOneToOne: false
-      referencedRelation: "transactions"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"debt_payments": {
                   Row: {
-                    "amount": number,"currency": Database["public"]['Enums']["currency_code"],"debt_id": string,"id": string,"paid_at": string,"transaction_id": string | null
+                    "amount": number,"currency": Database["public"]['Enums']["currency_code"],"debt_id": string,"due_date": string | null,"id": string,"paid_at": string,"transaction_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "amount": number,"currency"?: Database["public"]['Enums']["currency_code"],"debt_id": string,"id"?: string,"paid_at": string,"transaction_id"?: string | null
+                    "amount": number,"currency"?: Database["public"]['Enums']["currency_code"],"debt_id": string,"due_date"?: string | null,"id"?: string,"paid_at": string,"transaction_id"?: string | null
                   }
                   Update: {
-                    "amount"?: number,"currency"?: Database["public"]['Enums']["currency_code"],"debt_id"?: string,"id"?: string,"paid_at"?: string,"transaction_id"?: string | null
+                    "amount"?: number,"currency"?: Database["public"]['Enums']["currency_code"],"debt_id"?: string,"due_date"?: string | null,"id"?: string,"paid_at"?: string,"transaction_id"?: string | null
                   }
                   Relationships: [
                     {
@@ -153,19 +119,25 @@ isOneToOne: false
                   ]
                 },"debts": {
                   Row: {
-                    "account_id": string | null,"balance": number,"created_at": string,"creditor_person_id": string | null,"currency": Database["public"]['Enums']["currency_code"],"external_op_id": string | null,"id": string,"installment_amount": number | null,"installments_paid": number,"installments_total": number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date": string | null,"notes": string | null,"original_amount": number | null,"tcea": number | null
+                    "account_id": string | null,"auto_debit_account_id": string | null,"balance": number,"created_at": string,"creditor_person_id": string | null,"currency": Database["public"]['Enums']["currency_code"],"external_op_id": string | null,"id": string,"installment_amount": number | null,"installments_paid": number,"installments_total": number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date": string | null,"notes": string | null,"original_amount": number | null,"payoff_order": number | null,"tcea": number | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id"?: string | null,"balance": number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
+                    "account_id"?: string | null,"auto_debit_account_id"?: string | null,"balance": number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind": Database["public"]['Enums']["debt_kind"],"name": string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"payoff_order"?: number | null,"tcea"?: number | null
                   }
                   Update: {
-                    "account_id"?: string | null,"balance"?: number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind"?: Database["public"]['Enums']["debt_kind"],"name"?: string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"tcea"?: number | null
+                    "account_id"?: string | null,"auto_debit_account_id"?: string | null,"balance"?: number,"created_at"?: string,"creditor_person_id"?: string | null,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"id"?: string,"installment_amount"?: number | null,"installments_paid"?: number,"installments_total"?: number | null,"kind"?: Database["public"]['Enums']["debt_kind"],"name"?: string,"next_due_date"?: string | null,"notes"?: string | null,"original_amount"?: number | null,"payoff_order"?: number | null,"tcea"?: number | null
                   }
                   Relationships: [
                     {
       foreignKeyName: "debts_account_id_fkey"
       columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "debts_auto_debit_account_id_fkey"
+      columns: ["auto_debit_account_id"]
 isOneToOne: false
       referencedRelation: "accounts"
       referencedColumns: ["id"]
@@ -363,14 +335,14 @@ isOneToOne: false
                   ]
                 },"transactions": {
                   Row: {
-                    "account_id": string,"amount": number,"amount_pen": number,"category_id": string | null,"counterpart_account_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"external_op_id": string | null,"fx_rate": number | null,"id": string,"merchant": string | null,"note": string | null,"occurred_at": string,"person_id": string | null,"raw_email_id": string | null,"reversal_of": string | null,"shared_expense_id": string | null,"source": Database["public"]['Enums']["tx_source"],"status": Database["public"]['Enums']["tx_status"],"tags": (string)[],"type": Database["public"]['Enums']["tx_type"]
+                    "account_id": string,"amount": number,"amount_pen": number,"category_id": string | null,"counterpart_account_id": string | null,"created_at": string,"currency": Database["public"]['Enums']["currency_code"],"external_op_id": string | null,"fx_rate": number | null,"id": string,"merchant": string | null,"note": string | null,"occurred_at": string,"person_id": string | null,"raw_email_id": string | null,"reversal_of": string | null,"shared_dismissed": boolean,"shared_expense_id": string | null,"source": Database["public"]['Enums']["tx_source"],"status": Database["public"]['Enums']["tx_status"],"tags": (string)[],"type": Database["public"]['Enums']["tx_type"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id": string,"amount": number,"amount_pen": number,"category_id"?: string | null,"counterpart_account_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"fx_rate"?: number | null,"id"?: string,"merchant"?: string | null,"note"?: string | null,"occurred_at": string,"person_id"?: string | null,"raw_email_id"?: string | null,"reversal_of"?: string | null,"shared_expense_id"?: string | null,"source"?: Database["public"]['Enums']["tx_source"],"status"?: Database["public"]['Enums']["tx_status"],"tags"?: (string)[],"type": Database["public"]['Enums']["tx_type"]
+                    "account_id": string,"amount": number,"amount_pen": number,"category_id"?: string | null,"counterpart_account_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"fx_rate"?: number | null,"id"?: string,"merchant"?: string | null,"note"?: string | null,"occurred_at": string,"person_id"?: string | null,"raw_email_id"?: string | null,"reversal_of"?: string | null,"shared_dismissed"?: boolean,"shared_expense_id"?: string | null,"source"?: Database["public"]['Enums']["tx_source"],"status"?: Database["public"]['Enums']["tx_status"],"tags"?: (string)[],"type": Database["public"]['Enums']["tx_type"]
                   }
                   Update: {
-                    "account_id"?: string,"amount"?: number,"amount_pen"?: number,"category_id"?: string | null,"counterpart_account_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"fx_rate"?: number | null,"id"?: string,"merchant"?: string | null,"note"?: string | null,"occurred_at"?: string,"person_id"?: string | null,"raw_email_id"?: string | null,"reversal_of"?: string | null,"shared_expense_id"?: string | null,"source"?: Database["public"]['Enums']["tx_source"],"status"?: Database["public"]['Enums']["tx_status"],"tags"?: (string)[],"type"?: Database["public"]['Enums']["tx_type"]
+                    "account_id"?: string,"amount"?: number,"amount_pen"?: number,"category_id"?: string | null,"counterpart_account_id"?: string | null,"created_at"?: string,"currency"?: Database["public"]['Enums']["currency_code"],"external_op_id"?: string | null,"fx_rate"?: number | null,"id"?: string,"merchant"?: string | null,"note"?: string | null,"occurred_at"?: string,"person_id"?: string | null,"raw_email_id"?: string | null,"reversal_of"?: string | null,"shared_dismissed"?: boolean,"shared_expense_id"?: string | null,"source"?: Database["public"]['Enums']["tx_source"],"status"?: Database["public"]['Enums']["tx_status"],"tags"?: (string)[],"type"?: Database["public"]['Enums']["tx_type"]
                   }
                   Relationships: [
                     {
@@ -428,7 +400,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_type": "corriente"|"ahorros"|"debito"|"credito"|"billetera"|"activo"|"empresa","afp_commission_type": "flujo"|"mixta","category_kind": "gasto"|"ingreso","currency_code": "PEN"|"USD","debt_kind": "tarjeta"|"cuotas"|"personal","income_event_kind": "sueldo"|"gratificacion"|"cts"|"utilidades"|"bono"|"asignacion_vacacional"|"empresa"|"otro","parse_status": "pendiente"|"ok"|"desconocido"|"error"|"ignorado","rule_match": "contiene"|"empieza_con"|"regex","tx_source": "gmail"|"manual"|"recurrente","tx_status": "confirmado"|"por_revisar"|"anulado","tx_type": "gasto"|"ingreso"|"transferencia"|"pago_tarjeta"|"pago_deuda"|"reembolso"|"retiro_efectivo"
+            "account_type": "corriente"|"ahorros"|"debito"|"credito"|"billetera"|"activo","afp_commission_type": "flujo"|"mixta","category_kind": "gasto"|"ingreso","currency_code": "PEN"|"USD","debt_kind": "tarjeta"|"cuotas"|"personal","income_event_kind": "sueldo"|"gratificacion"|"cts"|"utilidades"|"bono"|"asignacion_vacacional"|"otro","parse_status": "pendiente"|"ok"|"desconocido"|"error"|"ignorado","rule_match": "contiene"|"empieza_con"|"regex","tx_source": "gmail"|"manual"|"recurrente","tx_status": "confirmado"|"por_revisar"|"anulado","tx_type": "gasto"|"ingreso"|"transferencia"|"pago_tarjeta"|"pago_deuda"|"reembolso"|"retiro_efectivo"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -548,7 +520,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "account_type": ["corriente", "ahorros", "debito", "credito", "billetera", "activo", "empresa"],"afp_commission_type": ["flujo", "mixta"],"category_kind": ["gasto", "ingreso"],"currency_code": ["PEN", "USD"],"debt_kind": ["tarjeta", "cuotas", "personal"],"income_event_kind": ["sueldo", "gratificacion", "cts", "utilidades", "bono", "asignacion_vacacional", "empresa", "otro"],"parse_status": ["pendiente", "ok", "desconocido", "error", "ignorado"],"rule_match": ["contiene", "empieza_con", "regex"],"tx_source": ["gmail", "manual", "recurrente"],"tx_status": ["confirmado", "por_revisar", "anulado"],"tx_type": ["gasto", "ingreso", "transferencia", "pago_tarjeta", "pago_deuda", "reembolso", "retiro_efectivo"]
+            "account_type": ["corriente", "ahorros", "debito", "credito", "billetera", "activo"],"afp_commission_type": ["flujo", "mixta"],"category_kind": ["gasto", "ingreso"],"currency_code": ["PEN", "USD"],"debt_kind": ["tarjeta", "cuotas", "personal"],"income_event_kind": ["sueldo", "gratificacion", "cts", "utilidades", "bono", "asignacion_vacacional", "otro"],"parse_status": ["pendiente", "ok", "desconocido", "error", "ignorado"],"rule_match": ["contiene", "empieza_con", "regex"],"tx_source": ["gmail", "manual", "recurrente"],"tx_status": ["confirmado", "por_revisar", "anulado"],"tx_type": ["gasto", "ingreso", "transferencia", "pago_tarjeta", "pago_deuda", "reembolso", "retiro_efectivo"]
           }
         }
 } as const

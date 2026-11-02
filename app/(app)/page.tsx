@@ -3,13 +3,27 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/category-icon";
 import { AccountsCard } from "@/components/home/accounts-card";
+import { OwedCard } from "@/components/home/owed-card";
+import { SharedPrompts } from "@/components/home/shared-prompts";
 import { QuickActions } from "@/components/home/quick-actions";
 import { TransactionList } from "@/components/transactions/transaction-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { currentYearMonth, limaDateKey, limaParts } from "@/lib/dates";
-import { countPendingReview, getAccountBalances, getCatalogs, getMonthSummary, getNextSalaryPayment, getRecentTransactions, getSetting } from "@/lib/data";
-import { formatMonth, formatPEN, formatShortDate } from "@/lib/format";
+import { getCardOverview } from "@/lib/card-data";
+import {
+  countPendingReview,
+  getAccountBalances,
+  getCatalogs,
+  getMonthSummary,
+  getNextSalaryPayment,
+  getRecentTransactions,
+  getSetting,
+  getSharedPrompts,
+} from "@/lib/data";
+import { buildProjectionInput, downPaymentAvailable, project } from "@/lib/finance";
+import { loadProjectionContext } from "@/lib/projection-data";
+import { formatMoney, formatMonth, formatPEN, formatShortDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Inicio · FLIP" };
@@ -19,14 +33,25 @@ export default async function HomePage() {
   const now = new Date();
   const ym = currentYearMonth(now);
   const catalogs = await getCatalogs(supabase);
-  const [summary, recent, pending, budget, balances, nextSalary] = await Promise.all([
+  const today = limaDateKey(now);
+  const [summary, recent, pending, budget, balances, nextSalary, prompts, ctx, projectionSettings, depa] = await Promise.all([
     getMonthSummary(supabase, ym, catalogs),
     getRecentTransactions(supabase, 5),
     countPendingReview(supabase),
     getSetting<number>(supabase, "monthly_budget", 1500),
     getAccountBalances(supabase, catalogs),
-    getNextSalaryPayment(supabase, limaDateKey(now)),
+    getNextSalaryPayment(supabase, today),
+    getSharedPrompts(supabase, catalogs),
+    loadProjectionContext(supabase, catalogs, today),
+    getSetting<{ living?: number }>(supabase, "projection", {}),
+    getSetting<{ price: number; down_pct: number; closing_pct: number }>(supabase, "depa", { price: 400000, down_pct: 0.3, closing_pct: 0.02 }),
   ]);
+  const card = await getCardOverview(supabase, catalogs, balances, today);
+  const plan = ctx ? project(buildProjectionInput(ctx, { living: projectionSettings.living ?? 1500, bonusSalaries: 0 })) : null;
+  const goalTarget = depa.price * (depa.down_pct + depa.closing_pct);
+  const goalNow = plan ? downPaymentAvailable(plan.months[0]) : 0;
+  const goalMonth = plan?.months.find((m) => downPaymentAvailable(m) >= goalTarget)?.ym;
+  const monthLabel = (ym: string) => formatMonth(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)));
 
   const cashAccountId = catalogs.accounts.find((a) => a.type === "billetera")?.id;
   const daysInMonth = new Date(Date.UTC(ym.year, ym.month, 0)).getUTCDate();
@@ -47,6 +72,8 @@ export default async function HomePage() {
       </header>
 
       <QuickActions cashAccountId={cashAccountId} />
+
+      <SharedPrompts transactions={prompts} />
 
       {pending > 0 && (
         <Link
@@ -168,17 +195,64 @@ export default async function HomePage() {
           )}
         </section>
 
-        <Card className="border-dashed bg-transparent">
-          <CardHeader>
-            <CardDescription>Próximamente (Fase 3)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm text-muted-foreground">
-            <p>A pagar tarjeta el 5 (estimado del ciclo)</p>
-            <p>Te deben</p>
-            <p>Progreso de deudas</p>
-            <p>Meta del depa</p>
-          </CardContent>
-        </Card>
+        {card && (
+          <Link href="/tarjeta" className="block">
+            <Card className="h-full transition-colors hover:bg-muted/30">
+              <CardHeader>
+                <CardDescription>A pagar tarjeta el {formatShortDate(`${card.due}T12:00:00-05:00`)}</CardDescription>
+                <CardTitle className="tabular text-3xl">
+                  {formatPEN(card.estimate.pen)}
+                  {card.estimate.usd > 0 && <span className="text-xl"> + {formatMoney(card.estimate.usd, "USD")}</span>}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                {card.daysToDue === 0 ? "Hoy" : `En ${card.daysToDue} ${card.daysToDue === 1 ? "día" : "días"}`} ·{" "}
+                {card.estimate.fromStatement ? "monto conocido" : "estimado del ciclo"}
+                {card.shortfall > 0 && <span className="text-destructive"> · te faltan {formatPEN(card.shortfall)}</span>}
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        <OwedCard owed={catalogs.owed} today={today} />
+
+        {plan && (
+          <Link href="/deudas" className="block">
+            <Card className="h-full transition-colors hover:bg-muted/30">
+              <CardHeader>
+                <CardDescription>Sin deudas desde</CardDescription>
+                <CardTitle className="text-3xl text-primary first-letter:uppercase">
+                  {plan.debtFreeMonth ? monthLabel(plan.debtFreeMonth) : "después de nov 2029"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground">
+                Te quedan {formatPEN(plan.months[0].debtsLeft)} por pagar (sin contar los consumos nuevos de la tarjeta).
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {plan && (
+          <Link href="/metas" className="block">
+            <Card className="h-full transition-colors hover:bg-muted/30">
+              <CardHeader>
+                <CardDescription>Meta del depa (inicial {Math.round(depa.down_pct * 100)}%)</CardDescription>
+                <CardTitle className="tabular text-3xl">
+                  {formatPEN(goalNow)}
+                  <span className="text-base font-normal text-muted-foreground"> de {formatPEN(goalTarget)}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Avance de la meta del depa" aria-valuenow={Math.round((goalNow / goalTarget) * 100)} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (goalNow / goalTarget) * 100)}%` }} />
+                </div>
+                <p className="text-sm text-muted-foreground first-letter:uppercase">
+                  {goalMonth ? `Llegas en ${monthLabel(goalMonth)}` : "Después de nov 2029 a este ritmo"}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
       </div>
     </div>
   );

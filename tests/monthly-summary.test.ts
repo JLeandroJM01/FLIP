@@ -90,3 +90,26 @@ describe("efectivo", () => {
     expect(nov.byCategory.get(CASH)).toBe(-30);
   });
 });
+
+describe("gastos compartidos (SPEC 8)", () => {
+  it("cuenta solo mi parte; el yapeo de un amigo para ese gasto no resta otra vez", () => {
+    const s = run([
+      tx({ type: "gasto", amountPen: 180, categoryId: "salidas", othersShare: 120 }),
+      tx({ type: "reembolso", amountPen: 60, paysSharedExpense: true }),
+    ]);
+    expect(s.spending).toBe(60);
+    expect(s.byCategory.get("salidas")).toBe(60);
+  });
+  it("un yapeo que no es de un gasto compartido sigue restando (Fase 1)", () => {
+    const s = run([
+      tx({ type: "gasto", amountPen: 180, categoryId: "salidas" }),
+      tx({ type: "reembolso", amountPen: 60 }),
+    ]);
+    expect(s.spending).toBe(120);
+  });
+});
+
+it("la CTS (cuenta no líquida) no suma al neto del mes", () => {
+  const s = run([tx({ type: "ingreso", amountPen: 2550, illiquid: true }), tx({ type: "ingreso", amountPen: 100 })]);
+  expect(s.income).toBe(100);
+});

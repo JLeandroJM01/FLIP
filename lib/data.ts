@@ -5,6 +5,7 @@ import {
   accountBalances,
   DEFAULT_AFP_RATES,
   monthlySummary,
+  monthlyTaxFor,
   salaryPaymentsOn,
   type AfpRates,
   type BalanceTx,
@@ -13,20 +14,22 @@ import {
   type SummaryTx,
 } from "@/lib/finance";
 import type { Database } from "@/lib/supabase/database.types";
-import type { Catalogs, DefaultAccounts, TransactionRow } from "@/lib/types";
+import type { Catalogs, DefaultAccounts, OwedItem, TransactionRow } from "@/lib/types";
 
 type DB = SupabaseClient<Database>;
 
 export const TRANSACTION_SELECT =
-  "*, account:accounts!transactions_account_id_fkey(id, name, type), category:categories(id, name, icon, color), person:people(id, name)";
+  "*, account:accounts!transactions_account_id_fkey(id, name, type), category:categories(id, name, icon, color), person:people(id, name), shared:shared_expenses!transactions_shared_expense_id_fkey(total, my_share)";
 
 export async function getCatalogs(supabase: DB): Promise<Catalogs> {
-  const [accounts, categories, people, tags, defaults] = await Promise.all([
+  const [accounts, categories, people, tags, defaults, owed, creditors] = await Promise.all([
     supabase.from("accounts").select("*").order("sort_order"),
     supabase.from("categories").select("*").order("kind").order("sort_order"),
     supabase.from("people").select("*").order("name"),
     supabase.from("tags").select("*").order("name"),
     supabase.from("settings").select("value").eq("key", "default_accounts").maybeSingle(),
+    getOwed(supabase),
+    supabase.from("debts").select("id, name, creditor_person_id").not("creditor_person_id", "is", null).gt("balance", 0),
   ]);
   return {
     accounts: accounts.data ?? [],
@@ -34,7 +37,54 @@ export async function getCatalogs(supabase: DB): Promise<Catalogs> {
     people: people.data ?? [],
     tags: tags.data ?? [],
     defaultAccounts: (defaults.data?.value ?? {}) as DefaultAccounts,
+    owed,
+    creditorDebts: (creditors.data ?? []).map((d) => ({ debtId: d.id, personId: d.creditor_person_id!, name: d.name })),
   };
+}
+
+/** "Te deben" (SPEC 8): lo pendiente de cada persona en gastos compartidos, del más antiguo al más nuevo. */
+export async function getOwed(supabase: DB): Promise<OwedItem[]> {
+  const { data } = await supabase
+    .from("shared_participants")
+    .select("id, person_id, amount_owed, amount_paid, person:people(name), shared:shared_expenses(tx:transactions!shared_expenses_transaction_id_fkey(merchant, note, occurred_at, status))");
+  const items: OwedItem[] = [];
+  for (const p of data ?? []) {
+    const pending = Number(p.amount_owed) - Number(p.amount_paid);
+    const tx = (p.shared as { tx: { merchant: string | null; note: string | null; occurred_at: string; status: string } | null } | null)?.tx;
+    if (pending <= 0.005 || !tx || tx.status === "anulado") continue;
+    items.push({
+      participantId: p.id,
+      personId: p.person_id,
+      personName: (p.person as { name: string } | null)?.name ?? "",
+      merchant: tx.merchant || tx.note || "Gasto compartido",
+      occurredAt: tx.occurred_at,
+      pending: Math.round(pending * 100) / 100,
+    });
+  }
+  return items.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+}
+
+/** Gastos recientes que conviene preguntar "¿Fue compartido?" (SPEC 8: Comida/Delivery/Salidas ≥ S/ 60). */
+export async function getSharedPrompts(supabase: DB, catalogs: Catalogs) {
+  const settings = await getSettings(supabase);
+  const threshold = Number(settings.shared_prompt_threshold ?? 60);
+  const names = (settings.shared_prompt_categories ?? ["Comida", "Delivery", "Salidas"]) as string[];
+  const categoryIds = catalogs.categories.filter((c) => c.kind === "gasto" && names.includes(c.name)).map((c) => c.id);
+  if (!categoryIds.length) return [];
+  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const { data } = await supabase
+    .from("transactions")
+    .select(TRANSACTION_SELECT)
+    .eq("type", "gasto")
+    .neq("status", "anulado")
+    .is("shared_expense_id", null)
+    .eq("shared_dismissed", false)
+    .in("category_id", categoryIds)
+    .gte("amount_pen", threshold)
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: false })
+    .limit(3);
+  return (data ?? []) as unknown as TransactionRow[];
 }
 
 export async function getSetting<T>(supabase: DB, key: string, fallback: T): Promise<T> {
@@ -94,7 +144,7 @@ export async function getMonthSummary(supabase: DB, ym: YearMonth, catalogs: Cat
   const [month, before] = await Promise.all([
     supabase
       .from("transactions")
-      .select("type, status, amount_pen, category_id, account_id")
+      .select("type, status, amount_pen, category_id, account_id, shared_expense_id, shared:shared_expenses!transactions_shared_expense_id_fkey(total, my_share)")
       .gte("occurred_at", start.toISOString())
       .lt("occurred_at", end.toISOString()),
     // Efectivo acumulado antes del mes: retiros y gastos pagados en efectivo.
@@ -111,19 +161,26 @@ export async function getMonthSummary(supabase: DB, ym: YearMonth, catalogs: Cat
   ]);
 
   const isCash = (accountId: string) => cashAccountIds.includes(accountId);
+  const illiquidIds = catalogs.accounts.filter((a) => a.type === "activo").map((a) => a.id);
   const cashTotalsBefore = { withdrawals: 0, cashExpenses: 0 };
   for (const t of before.data ?? []) {
     if (t.type === "retiro_efectivo") cashTotalsBefore.withdrawals += Number(t.amount_pen);
     else if (isCash(t.account_id)) cashTotalsBefore.cashExpenses += Number(t.amount_pen);
   }
 
-  const transactions: SummaryTx[] = (month.data ?? []).map((t) => ({
-    type: t.type,
-    status: t.status,
-    amountPen: Number(t.amount_pen),
-    categoryId: t.category_id,
-    paidInCash: isCash(t.account_id),
-  }));
+  const transactions: SummaryTx[] = (month.data ?? []).map((t) => {
+    const shared = t.shared as { total: number; my_share: number } | null;
+    return {
+      type: t.type,
+      status: t.status,
+      amountPen: Number(t.amount_pen),
+      categoryId: t.category_id,
+      paidInCash: isCash(t.account_id),
+      othersShare: t.type === "gasto" && shared ? Number(shared.total) - Number(shared.my_share) : 0,
+      paysSharedExpense: t.type === "reembolso" && !!t.shared_expense_id,
+      illiquid: illiquidIds.includes(t.account_id),
+    };
+  });
 
   return monthlySummary({ transactions, cashTotalsBefore, cashCategoryId });
 }
@@ -174,7 +231,7 @@ export async function getNextSalaryPayment(supabase: DB, today: string): Promise
     paySchedule: profile.pay_schedule as PayItem[],
     afpRates: { ...DEFAULT_AFP_RATES, ...((settings.afp_rates ?? {}) as Partial<AfpRates>) },
   };
-  const tax = (ym: string) => taxByPeriod[ym] ?? taxByPeriod[ym.slice(0, 4)] ?? 0;
+  const tax = (ym: string) => monthlyTaxFor(ym, taxByPeriod);
   for (let i = 0; i <= 45; i++) {
     const d = new Date(`${today}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + i);

@@ -184,3 +184,48 @@ export async function saveManualFx(_prev: ActionState, fd: FormData): Promise<Ac
   const { ok } = await processPendingEmails(supabase);
   return done(ok ? `Tipo de cambio guardado · ${ok} correo(s) procesado(s)` : "Tipo de cambio guardado");
 }
+
+// ───────── Calendario de ingresos, proyección y meta del depa ─────────
+
+const dayOfMonth = num(z.number().int().min(1, "Día 1–31").max(31, "Día 1–31"));
+const goalsSchema = z.object({
+  gratificacion_day: dayOfMonth,
+  cts_day: dayOfMonth,
+  utilidades_month: num(z.number().int().min(1, "Mes 1–12").max(12, "Mes 1–12")),
+  utilidades_day: dayOfMonth,
+  living: num(z.number().min(0, "Monto inválido")),
+  fx: num(z.number().positive("Tipo de cambio inválido").max(20)),
+  price: num(z.number().positive("Precio inválido")),
+  down_pct: num(z.number().min(0).max(100)),
+  closing_pct: num(z.number().min(0).max(100)),
+  bono_buen_pagador: num(z.number().min(0)),
+  tea: num(z.number().min(0).max(100)),
+  years: num(z.number().int().min(1).max(40)),
+});
+
+export async function saveIncomeAndGoals(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const parsed = goalsSchema.safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error);
+  const v = parsed.data;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("settings").upsert([
+    { key: "income_calendar", value: { gratificacion_day: v.gratificacion_day, cts_day: v.cts_day, utilidades_month: v.utilidades_month, utilidades_day: v.utilidades_day }, updated_at: now },
+    { key: "projection", value: { living: v.living, fx: v.fx }, updated_at: now },
+    {
+      key: "depa",
+      value: { price: v.price, down_pct: v.down_pct / 100, closing_pct: v.closing_pct / 100, bono_buen_pagador: v.bono_buen_pagador, tea: v.tea / 100, years: v.years },
+      updated_at: now,
+    },
+  ]);
+  if (error) return { ok: false, message: "No se pudo guardar" };
+  // La meta guardada sigue al cálculo: inicial + gastos de cierre.
+  const { data: goal } = await supabase.from("goals").select("id").order("priority").limit(1).maybeSingle();
+  if (goal) {
+    await supabase
+      .from("goals")
+      .update({ name: `Inicial del depa (${v.down_pct}%)`, target_amount: Math.round((v.price * (v.down_pct + v.closing_pct)) / 100) })
+      .eq("id", goal.id);
+  }
+  return done("Calendario y metas guardados");
+}

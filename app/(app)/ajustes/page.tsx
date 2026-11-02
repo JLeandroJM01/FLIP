@@ -12,7 +12,7 @@ import { getAccountBalances, getCatalogs, getSettings } from "@/lib/data";
 import { DEFAULT_AFP_RATES, type AfpRates } from "@/lib/finance";
 import { formatMoney, formatPEN } from "@/lib/format";
 import type { DefaultAccounts } from "@/lib/types";
-import { saveAccount, saveCategory, saveManualFx, saveParameters, savePerson } from "./actions";
+import { saveAccount, saveCategory, saveIncomeAndGoals, saveManualFx, saveParameters, savePerson } from "./actions";
 
 export const metadata: Metadata = { title: "Ajustes · FLIP" };
 
@@ -20,7 +20,7 @@ type PayItem = { day: number; share: number; month_offset?: number };
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   corriente: "Corriente", ahorros: "Ahorros", debito: "Débito", credito: "Crédito",
-  billetera: "Billetera", activo: "Activo", empresa: "Empresa",
+  billetera: "Billetera", activo: "Activo",
 };
 
 export default async function SettingsPage() {
@@ -40,6 +40,9 @@ export default async function SettingsPage() {
   const defaults = (settings.default_accounts ?? {}) as DefaultAccounts;
   const pay = ((profileRes.data?.pay_schedule ?? []) as PayItem[]).slice(0, 2);
   const fx = fxRes.data;
+  const cal = (settings.income_calendar ?? {}) as Record<string, number>;
+  const proj = (settings.projection ?? {}) as Record<string, number>;
+  const depa = (settings.depa ?? {}) as Record<string, number>;
   const pct = (n: number) => String(Math.round(n * 10000) / 100);
 
   return (
@@ -106,6 +109,44 @@ export default async function SettingsPage() {
                     ))}
                   </SelectField>
                 ))}
+              </div>
+            </fieldset>
+          </SettingsForm>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Calendario de ingresos y metas</CardTitle>
+          <CardDescription>Fechas de pago, gasto de vida para la proyección y el depa (SPEC 9, 14 y 14.1).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SettingsForm action={saveIncomeAndGoals} submitLabel="Guardar calendario y metas">
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Días de pago</legend>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Field label="Gratificación (jul y dic)" name="gratificacion_day" inputMode="numeric" defaultValue={cal.gratificacion_day ?? 15} />
+                <Field label="CTS (may y nov)" name="cts_day" inputMode="numeric" defaultValue={cal.cts_day ?? 20} />
+                <Field label="Utilidades: mes" name="utilidades_month" inputMode="numeric" defaultValue={cal.utilidades_month ?? 4} />
+                <Field label="Utilidades: día" name="utilidades_day" inputMode="numeric" defaultValue={cal.utilidades_day ?? 20} />
+              </div>
+            </fieldset>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Proyección</legend>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Gasto de vida al mes (S/)" name="living" inputMode="decimal" defaultValue={proj.living ?? 1500} />
+                <Field label="Tipo de cambio supuesto" name="fx" inputMode="decimal" defaultValue={proj.fx ?? 3.45} />
+              </div>
+            </fieldset>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium">Depa</legend>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Field label="Precio (S/)" name="price" inputMode="decimal" defaultValue={depa.price ?? 400000} />
+                <Field label="Inicial %" name="down_pct" inputMode="decimal" defaultValue={pct(depa.down_pct ?? 0.3)} />
+                <Field label="Gastos de cierre %" name="closing_pct" inputMode="decimal" defaultValue={pct(depa.closing_pct ?? 0.02)} />
+                <Field label="Bono Buen Pagador (S/)" name="bono_buen_pagador" inputMode="decimal" defaultValue={depa.bono_buen_pagador ?? 7900} />
+                <Field label="TEA del crédito %" name="tea" inputMode="decimal" defaultValue={pct(depa.tea ?? 0.08)} />
+                <Field label="Plazo (años)" name="years" inputMode="numeric" defaultValue={depa.years ?? 25} />
               </div>
             </fieldset>
           </SettingsForm>

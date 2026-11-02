@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { fromLimaDateTimeLocal, limaDateKey } from "@/lib/dates";
 import { fetchBcrpRate } from "@/lib/fx/bcrp";
@@ -74,7 +75,24 @@ export async function saveTransaction(_prev: ActionState, formData: FormData): P
       ruleMessage = ` · Regla creada para ${existing.merchant}`;
     }
   } else {
-    ({ error } = await supabase.from("transactions").insert({ ...row, source: "manual", status: "confirmado" }));
+    // "Me yapearon" de un gasto compartido: se liga al gasto y baja lo que esa persona debe.
+    const participantId = v.kind === "reembolso" ? String(formData.get("shared_participant_id") ?? "") : "";
+    let sharedExpenseId: string | null = null;
+    if (participantId) {
+      const { data: p } = await supabase
+        .from("shared_participants")
+        .select("id, shared_expense_id, person_id, amount_owed, amount_paid")
+        .eq("id", participantId)
+        .single();
+      if (p && p.person_id === v.person_id) {
+        sharedExpenseId = p.shared_expense_id;
+        const paid = Math.min(Number(p.amount_owed), Number(p.amount_paid) + v.amount_pen);
+        await supabase.from("shared_participants").update({ amount_paid: paid }).eq("id", p.id);
+      }
+    }
+    ({ error } = await supabase
+      .from("transactions")
+      .insert({ ...row, source: "manual", status: "confirmado", shared_expense_id: sharedExpenseId }));
   }
   if (error) return { ok: false, message: "No se pudo guardar. Inténtalo de nuevo." };
 
@@ -137,6 +155,56 @@ export async function ignoreRawEmail(id: string): Promise<ActionState> {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("raw_emails").update({ parse_status: "ignorado", error: "ignorado a mano" }).eq("id", id);
   if (error) return { ok: false, message: "No se pudo actualizar" };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// ───────── Gastos compartidos (SPEC 8) ─────────
+
+const sharedSchema = z.object({
+  transaction_id: z.uuid(),
+  my_share: z.number().min(0),
+  participants: z
+    .array(z.object({ person_id: z.uuid(), amount: z.number().positive("Monto inválido") }))
+    .min(1, "Elige al menos una persona"),
+  note: z.string().trim().max(200).optional(),
+});
+
+/** Marca un gasto como compartido: cuenta solo mi parte; lo demás queda "por cobrar". */
+export async function createSharedExpense(input: z.input<typeof sharedSchema>): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const parsed = sharedSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos" };
+  const v = parsed.data;
+  const { data: tx } = await supabase.from("transactions").select("amount_pen, type, shared_expense_id, tags").eq("id", v.transaction_id).single();
+  if (!tx || tx.type !== "gasto") return { ok: false, message: "Solo un gasto puede ser compartido" };
+  if (tx.shared_expense_id) return { ok: false, message: "Este gasto ya es compartido" };
+  const total = Number(tx.amount_pen);
+  const others = v.participants.reduce((s, p) => s + p.amount, 0);
+  if (Math.abs(others + v.my_share - total) > 0.01) {
+    return { ok: false, message: `Tu parte y la de los demás deben sumar ${total.toFixed(2)}` };
+  }
+  const { data: shared, error } = await supabase
+    .from("shared_expenses")
+    .insert({ transaction_id: v.transaction_id, total, my_share: v.my_share, note: v.note || null })
+    .select("id")
+    .single();
+  if (error || !shared) return { ok: false, message: "No se pudo guardar" };
+  await supabase.from("shared_participants").insert(
+    v.participants.map((p) => ({ shared_expense_id: shared.id, person_id: p.person_id, amount_owed: p.amount })),
+  );
+  await supabase
+    .from("transactions")
+    .update({ shared_expense_id: shared.id, tags: Array.from(new Set([...(tx.tags ?? []), "compartido"])) })
+    .eq("id", v.transaction_id);
+  revalidatePath("/", "layout");
+  return { ok: true, savedAt: Date.now(), message: `Compartido: tu parte es S/ ${v.my_share.toFixed(2)}` };
+}
+
+/** "No fue compartido": no se vuelve a preguntar por este gasto. */
+export async function dismissSharedPrompt(transactionId: string): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  await supabase.from("transactions").update({ shared_dismissed: true }).eq("id", transactionId);
   revalidatePath("/", "layout");
   return { ok: true };
 }

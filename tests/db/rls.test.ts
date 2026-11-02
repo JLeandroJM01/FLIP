@@ -51,7 +51,7 @@ describe("RLS", () => {
   it("el usuario permitido ve los datos iniciales", async () => {
     const { data, error } = await allowed.from("accounts").select("name");
     expect(error).toBeNull();
-    expect(data).toHaveLength(8);
+    expect(data).toHaveLength(7); // 8 del SPEC menos la empresa (fuera del proyecto)
   });
 
   it("el usuario permitido puede escribir", async () => {

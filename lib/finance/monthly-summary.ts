@@ -1,6 +1,7 @@
 // Resumen del mes para el Inicio (SPEC 1, 4, 8 y 13). Reglas para no contar dos veces:
 // - transferencia, pago_tarjeta y pago_deuda no son gasto ni ingreso.
-// - reembolso ("Me yapearon") resta del gastado del mes.
+// - reembolso ("Me yapearon") resta del gastado del mes, salvo que pague un gasto compartido.
+// - Gasto compartido (SPEC 8): cuenta solo mi parte; lo de los demás queda "por cobrar".
 // - Efectivo: el retiro es gasto "Efectivo"; un gasto pagado en efectivo va a su
 //   categoría y se descuenta del efectivo sin detallar. Solo lo que supere lo
 //   retirado (acumulado) cuenta como gasto nuevo.
@@ -22,6 +23,12 @@ export type SummaryTx = {
   categoryId: string | null;
   /** El gasto se pagó desde la billetera de Efectivo. */
   paidInCash: boolean;
+  /** Gasto compartido: lo que pusieron los demás (total − mi parte). */
+  othersShare?: number;
+  /** Reembolso que paga la parte de alguien en un gasto compartido (ya descontada). */
+  paysSharedExpense?: boolean;
+  /** Entra a una cuenta no líquida (CTS, fondo AFP): no suma al neto del mes (SPEC 14). */
+  illiquid?: boolean;
 };
 
 export type CashTotals = { withdrawals: number; cashExpenses: number };
@@ -55,6 +62,7 @@ export function monthlySummary({
   let nonCashSpending = 0;
   let withdrawals = 0;
   let cashExpenses = 0;
+  let othersShares = 0;
   const byCategory = new Map<string | null, number>();
   const add = (key: string | null, amount: number) =>
     byCategory.set(key, (byCategory.get(key) ?? 0) + amount);
@@ -63,19 +71,26 @@ export function monthlySummary({
     if (tx.status !== "confirmado") continue;
     switch (tx.type) {
       case "ingreso":
-        income += tx.amountPen;
+        if (!tx.illiquid) income += tx.amountPen;
         break;
       case "reembolso":
-        reimbursements += tx.amountPen;
+        if (!tx.paysSharedExpense) reimbursements += tx.amountPen;
         break;
       case "retiro_efectivo":
         withdrawals += tx.amountPen;
         break;
-      case "gasto":
+      case "gasto": {
         if (tx.paidInCash) cashExpenses += tx.amountPen;
         else nonCashSpending += tx.amountPen;
         add(tx.categoryId, tx.amountPen);
+        const others = Math.min(tx.othersShare ?? 0, tx.amountPen);
+        if (others > 0) {
+          // Lo pagué yo, pero no es gasto mío: queda por cobrar.
+          othersShares += others;
+          add(tx.categoryId, -others);
+        }
         break;
+      }
       default:
         break; // transferencia, pago_tarjeta, pago_deuda: no cuentan
     }
@@ -95,7 +110,7 @@ export function monthlySummary({
 
   for (const [key, value] of byCategory) byCategory.set(key, round2(value));
 
-  const spending = round2(nonCashSpending + cashSpending - reimbursements);
+  const spending = round2(nonCashSpending + cashSpending - reimbursements - othersShares);
   return {
     income: round2(income),
     spending,

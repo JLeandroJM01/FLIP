@@ -1,7 +1,7 @@
-import { ChevronRight, LogOut, Settings } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { UPCOMING } from "@/components/shell/nav-items";
+import { MORE_ITEMS, UPCOMING } from "@/components/shell/nav-items";
 
 export const metadata: Metadata = { title: "Más · FLIP" };
 
@@ -13,13 +13,15 @@ export default function MorePage() {
       </header>
 
       <ul className="divide-y overflow-hidden rounded-xl border bg-card">
-        <li>
-          <Link href="/ajustes" className="flex min-h-14 items-center gap-3 px-4 hover:bg-muted/50">
-            <Settings className="size-5 text-primary" />
-            <span className="flex-1">Ajustes</span>
-            <ChevronRight className="size-4 text-muted-foreground" />
-          </Link>
-        </li>
+        {MORE_ITEMS.map(({ href, label, icon: Icon }) => (
+          <li key={href}>
+            <Link href={href} className="flex min-h-14 items-center gap-3 px-4 hover:bg-muted/50">
+              <Icon className="size-5 text-primary" />
+              <span className="flex-1">{label}</span>
+              <ChevronRight className="size-4 text-muted-foreground" />
+            </Link>
+          </li>
+        ))}
       </ul>
 
       <section className="space-y-2">

@@ -1,14 +1,16 @@
 "use client";
 
-import { Ban, CheckCircle2, RotateCcw, UserPlus } from "lucide-react";
+import { Ban, CheckCircle2, RotateCcw, Users, UserPlus } from "lucide-react";
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createPerson, getFxRate, saveTransaction, setTransactionStatus, type ActionState } from "@/app/(app)/actions";
+import { convertToDebtPayment } from "@/app/(app)/deudas/actions";
 import { CategoryIcon } from "@/components/category-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { limaDateKey, toLimaDateTimeLocal } from "@/lib/dates";
+import { formatPEN, formatShortDate } from "@/lib/format";
 import type { Account, Catalogs, CurrencyCode, Person, QuickKind, TransactionRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -26,8 +28,8 @@ const SUBMIT_LABELS: Record<QuickKind, string> = {
 
 /** Cuentas que tiene sentido elegir según el tipo de registro. */
 function accountsFor(kind: QuickKind, accounts: Account[]) {
-  if (kind === "gasto") return accounts.filter((a) => !["activo", "empresa"].includes(a.type));
-  if (kind === "ingreso") return accounts.filter((a) => a.type !== "empresa");
+  if (kind === "gasto") return accounts.filter((a) => a.type !== "activo");
+  if (kind === "ingreso") return accounts;
   return accounts.filter((a) => ["corriente", "ahorros", "billetera"].includes(a.type));
 }
 
@@ -35,15 +37,19 @@ export function TransactionForm({
   catalogs,
   initialKind,
   initialAccountId,
+  initialPersonId,
   transaction,
   onDone,
+  onShare,
 }: {
   catalogs: Catalogs;
   initialKind: QuickKind;
   initialAccountId?: string;
+  initialPersonId?: string;
   /** Si viene, el formulario edita este movimiento. */
   transaction?: TransactionRow;
   onDone: () => void;
+  onShare?: (transaction: TransactionRow) => void;
 }) {
   const editing = !!transaction;
   const [kind, setKind] = useState<QuickKind>(initialKind);
@@ -51,7 +57,14 @@ export function TransactionForm({
   const [fxRate, setFxRate] = useState(transaction?.fx_rate ? String(transaction.fx_rate) : "");
   const [fxInfo, setFxInfo] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>(catalogs.people);
-  const [personId, setPersonId] = useState(transaction?.person_id ?? "");
+  const [personId, setPersonId] = useState(transaction?.person_id ?? initialPersonId ?? "");
+  const owedByPerson = catalogs.owed.filter((o) => o.personId === personId);
+  // null = la deuda más antigua de esa persona (por defecto); "" = "De otra cosa".
+  const [participantChoice, setParticipantChoice] = useState<string | null>(null);
+  const participantId =
+    participantChoice !== null && (participantChoice === "" || owedByPerson.some((o) => o.participantId === participantChoice))
+      ? participantChoice
+      : (owedByPerson[0]?.participantId ?? "");
   const [newPerson, setNewPerson] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [state, formAction, saving] = useActionState<ActionState, FormData>(saveTransaction, { ok: false });
@@ -233,7 +246,28 @@ export function TransactionForm({
             )}
           </div>
           {errors.person_id && <FieldError>{errors.person_id}</FieldError>}
-          <p className="text-xs text-muted-foreground">Se guarda como reembolso: resta de tu gasto del mes, no es ingreso.</p>
+          {!editing && owedByPerson.length > 0 && (
+            <div className="space-y-2 rounded-xl border p-3">
+              <p className="text-sm font-medium">¿De qué gasto compartido?</p>
+              {[...owedByPerson.map((o) => ({ id: o.participantId, label: `${o.merchant} · ${formatShortDate(o.occurredAt)}`, pending: o.pending })), { id: "", label: "De otra cosa", pending: null }].map((o) => (
+                <label key={o.id || "otro"} className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                  <input
+                    type="radio"
+                    name="shared_participant_id"
+                    value={o.id}
+                    checked={participantId === o.id}
+                    onChange={() => setParticipantChoice(o.id)}
+                    className="size-4 accent-[var(--primary)]"
+                  />
+                  <span className="flex-1">{o.label}</span>
+                  {o.pending != null && <span className="tabular text-muted-foreground">debe {formatPEN(o.pending)}</span>}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Se guarda como reembolso, no como ingreso. Si es de un gasto compartido, baja lo que te deben (ese gasto ya cuenta solo tu parte).
+          </p>
         </fieldset>
       ) : (
         <fieldset className="space-y-2">
@@ -342,6 +376,44 @@ export function TransactionForm({
                 : SUBMIT_LABELS[kind]}
           </Button>
         </div>
+      )}
+
+      {transaction?.type === "gasto" &&
+        transaction.status === "por_revisar" &&
+        catalogs.creditorDebts
+          .filter((d) => d.personId === transaction.person_id)
+          .map((d) => (
+            <Button
+              key={d.debtId}
+              type="button"
+              size="touch"
+              className="w-full"
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  const r = await convertToDebtPayment(transaction.id, d.debtId);
+                  if (!r.ok) return void toast.error(r.message ?? "No se pudo convertir");
+                  toast.success(r.message ?? "Listo");
+                  onDone();
+                })
+              }
+            >
+              Es un pago de mi deuda con {d.name}
+            </Button>
+          ))}
+
+      {transaction?.type === "gasto" && transaction.status !== "anulado" && (
+        transaction.shared ? (
+          <p className="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm text-muted-foreground">
+            <Users className="size-4 text-primary" /> Compartido · tu parte {formatPEN(Number(transaction.shared.my_share))}
+          </p>
+        ) : (
+          onShare && (
+            <Button type="button" variant="secondary" size="touch" className="w-full" onClick={() => onShare(transaction)}>
+              <Users /> Es un gasto compartido
+            </Button>
+          )
+        )
       )}
 
       {transaction && (

@@ -16,9 +16,20 @@ export type DefaultAccounts = Partial<Record<QuickKind, string>>;
 
 /** Movimiento con sus relaciones, como lo muestran las listas. */
 export type TransactionRow = Tables["transactions"]["Row"] & {
+  shared?: { total: number; my_share: number } | null;
   account: Pick<Account, "id" | "name" | "type"> | null;
   category: Pick<Category, "id" | "name" | "icon" | "color"> | null;
   person: Pick<Person, "id" | "name"> | null;
+};
+
+/** Lo que una persona todavía debe de un gasto compartido (SPEC 8). */
+export type OwedItem = {
+  participantId: string;
+  personId: string;
+  personName: string;
+  merchant: string;
+  occurredAt: string;
+  pending: number;
 };
 
 /** Catálogos que necesitan los formularios. */
@@ -28,4 +39,7 @@ export type Catalogs = {
   people: Person[];
   tags: Tag[];
   defaultAccounts: DefaultAccounts;
+  owed: OwedItem[];
+  /** Deudas con una persona (para "¿Es un pago de tu deuda con NOMBRE?", SPEC 11). */
+  creditorDebts: { debtId: string; personId: string; name: string }[];
 };

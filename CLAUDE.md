@@ -18,12 +18,14 @@
 ```
 app/(app)/              pantallas con sesión: Inicio, movimientos/, metas/, mas/, ajustes/ (+ actions.ts)
 app/login, app/auth/    login con Google, callback y cierre de sesión
+app/api/ingest/         POST firmado (HMAC) desde el Apps Script; guarda raw_emails (idempotente)
 proxy.ts                (ex middleware) refresca la sesión y bloquea correos no permitidos
 components/ui/          shadcn (botones táctiles: size="touch" | "icon-touch", ≥ 44 px)
 components/shell/       barra lateral (md+) y barra inferior (celular)
 components/quick-add/   registro rápido (hoja inferior en celular, diálogo en md+)
 components/transactions lista de movimientos (tarjetas < lg, tabla en lg)
-lib/supabase/           clientes (browser, server, proxy) y database.types.ts (npm run db:types)
+lib/supabase/           clientes (browser, server, proxy, admin = service role) y database.types.ts (npm run db:types)
+lib/ingest/             contrato del Apps Script: firma HMAC y esquema del payload
 lib/data.ts             consultas del servidor (catálogos, resumen del mes…)
 lib/finance/            funciones PURAS: AFP, quinta, gratificación, utilidades, neto, resumen del mes
 lib/transaction-input.ts validación (zod) del formulario de movimientos
@@ -78,6 +80,7 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 
 ## Seguridad
 - Login solo con Google y solo para `ALLOWED_EMAIL`. RLS en todas las tablas.
+- `lib/supabase/admin.ts` (service role, salta RLS) solo en procesos sin sesión: `/api/ingest` y tareas programadas. Esas rutas van en `MACHINE_PATHS` del proxy y se autentican con su propia firma.
 - Nada de secretos en el código: `.env.local` (no se versiona) y `.env.example` como plantilla.
 - Variables: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_EMAIL`, `INGEST_SECRET`, `ANTHROPIC_API_KEY` (opcional); para Supabase local, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
 - Solo últimos 4 dígitos de tarjetas. `raw_emails.body` se borra a los 90 días.

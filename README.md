@@ -82,12 +82,28 @@ En **Authentication → Providers → Google**: activado, con el Client ID y Sec
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Publishable key |
 | `ALLOWED_EMAIL` | tu Gmail |
+| `SUPABASE_SERVICE_ROLE_KEY` | Secret key de Supabase (solo la usa el servidor: ingesta de Gmail) |
+| `INGEST_SECRET` | `openssl rand -hex 32`; el mismo valor va en el Apps Script |
 
-`SUPABASE_SERVICE_ROLE_KEY` e `INGEST_SECRET` **no** hacen falta todavía: se agregan en la Fase 2 (endpoint de ingesta).
+Después de agregar o cambiar variables hay que volver a desplegar (*Deployments → Redeploy*).
 
 3. Deploy. Abre la URL, entra con Google y registra un gasto desde el celular.
 
 ---
+
+### 4. Apps Script (Gmail → FLIP)
+
+En [script.google.com](https://script.google.com), con la cuenta que recibe los correos del BCP y Yape:
+1. Nuevo proyecto → borra el contenido de `Código.gs` y pega todo [apps-script/Code.gs](apps-script/Code.gs). Guarda.
+2. ⚙️ *Configuración del proyecto* → *Propiedades del script*:
+   - `INGEST_URL` = `https://<tu-dominio>.vercel.app/api/ingest`
+   - `INGEST_SECRET` = el mismo de Vercel
+3. Ejecuta, en este orden (menú de funciones → *Ejecutar*):
+   - `probarConexion` → en el registro debe decir "Conexión OK con FLIP". La primera vez Google pide permisos: *Revisar permisos* → tu cuenta → *Configuración avanzada* → *Ir a … (no seguro)* → *Permitir* (es tu propio script).
+   - `backfill` → carga los últimos 90 días. Si dice "Se cortó por tiempo", ejecútalo otra vez.
+   - `setup` → deja la revisión automática cada 5 minutos.
+
+Los correos procesados quedan con la etiqueta `finanzas/procesado` en Gmail.
 
 ## Estado de la Fase 1
 

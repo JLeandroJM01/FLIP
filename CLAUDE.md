@@ -24,7 +24,8 @@ lib/parsers/            un archivo por formato de correo + index.ts que decide p
 lib/format.ts           formato de soles (S/) y dólares (US$) en es-PE
 lib/dates.ts            día y mes en hora de Lima (rangos de mes, datetime-local)
 supabase/migrations/    esquema SQL (tablas de la sección 6 del SPEC)
-supabase/seed.sql       datos iniciales (cuentas, categorías, reglas, deudas, perfil de ingresos)
+supabase/seed.sql       datos iniciales (cuentas, categorías, reglas, deudas, perfil de ingresos, settings)
+scripts/                utilidades de línea de comandos (allow-email)
 apps-script/Code.gs     script de Gmail (Fase 2)
 tests/                  tests unitarios; tests/fixtures/emails/ para los parsers
 e2e/                    Playwright (capturas en 375, 768 y 1440 px)
@@ -32,15 +33,20 @@ e2e/                    Playwright (capturas en 375, 768 y 1440 px)
 
 ## Comandos
 ```
-npm run dev            # servidor local
+npm run dev            # http://localhost:3100 (el 3000 lo usa semi_erp). Usa .env.development.local → Supabase local
 npm run build          # build de producción
 npm run lint
 npm run typecheck      # next typegen + tsc
-npm test               # Vitest
+npm test               # Vitest (unitarios, sin base de datos)
+npm run test:db        # tests de RLS contra el Supabase local
 npm run test:e2e       # Playwright
-npx supabase start     # Supabase local (requiere Docker)
-npx supabase db reset  # aplica migraciones + seed en local
+npm run db:start       # Supabase local en Docker (carga las claves de Google de .env.local)
+npm run db:reset       # vuelve a aplicar migraciones + seed en local
+npm run db:allow       # agrega ALLOWED_EMAIL a allowed_emails (local)
+npm run db:allow:cloud # lo mismo en el proyecto de Supabase en la nube
 ```
+
+Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (lo pisa en `next dev`) apunta al Supabase local. Ninguno se versiona.
 
 ## Reglas de negocio clave
 - **No contar nada dos veces.** Pagar la tarjeta (`pago_tarjeta`), mover plata entre cuentas propias (`transferencia`) y recibir el reembolso de un gasto compartido (`reembolso`) **no son gastos ni ingresos**. En reportes, de un gasto compartido solo cuenta **mi parte**.

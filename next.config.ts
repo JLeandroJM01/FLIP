@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 // Sin cacheComponents: toda la app está detrás del login y es dinámica.
 const nextConfig: NextConfig = {
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {

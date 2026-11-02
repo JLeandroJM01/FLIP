@@ -116,7 +116,8 @@ export function GoalsView({ ctx, depa, defaultLiving }: { ctx: ProjectionContext
           </div>
           <details className="mt-4 text-sm">
             <summary className="flex min-h-11 cursor-pointer items-center text-muted-foreground">Ver como tabla</summary>
-            <table className="mt-2 w-full text-left">
+            <div className="overflow-x-auto">
+            <table className="mt-2 w-full min-w-[22rem] text-left">
               <thead className="text-xs text-muted-foreground">
                 <tr>
                   <th className="py-2 font-medium">Mes</th>
@@ -136,6 +137,7 @@ export function GoalsView({ ctx, depa, defaultLiving }: { ctx: ProjectionContext
                 ))}
               </tbody>
             </table>
+            </div>
           </details>
         </CardContent>
       </Card>

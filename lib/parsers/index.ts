@@ -6,7 +6,7 @@ import { parseMoney, parsePercent, parseRate, type Money } from "./money";
 import { cleanMerchant, field, last4After, normalizeBody } from "./text";
 
 /** Subir cuando cambie la lógica: permite volver a leer correos viejos (SPEC 3.2). */
-export const PARSER_VERSION = "1";
+export const PARSER_VERSION = "2";
 
 /** Cómo identificar la cuenta: últimos 4 de la cuenta/tarjeta, tarjeta de débito asociada, Yape o efectivo. */
 export type AccountRef =
@@ -164,6 +164,21 @@ const PARSERS: Parser[] = [
     matches: subjectHas("Constancia de Configuración de Tarjeta"),
     parse: () => ({ kind: "ignore", reason: "configuración de tarjeta" }),
   },
+  {
+    name: "ignorar_estado_cuenta",
+    matches: subjectHas("Constancia de envío de Estado de Cuenta"),
+    parse: () => ({ kind: "ignore", reason: "solicitud de estado de cuenta" }),
+  },
+  {
+    name: "ignorar_credito_yape",
+    matches: subjectHas("Tu crédito ya está disponible"),
+    parse: () => ({ kind: "ignore", reason: "desembolso del crédito Yape (la deuda está en Deudas)" }),
+  },
+  {
+    name: "ignorar_recordatorio",
+    matches: subjectHas("Tu fecha de pago está cerca"),
+    parse: () => ({ kind: "ignore", reason: "recordatorio de pago del crédito Yape" }),
+  },
 
   // ───── formatos 1 y 2 ─────
   { name: "consumo_credito", matches: subjectHas("consumo con tu Tarjeta de Crédito"), parse: cardConsumption("Crédito") },
@@ -172,6 +187,40 @@ const PARSERS: Parser[] = [
   // ───── formato 3 y 10 ─────
   { name: "transferencia_otros_bancos", matches: subjectHas("Transferencia a Otros Bancos"), parse: transferToOthers("Monto enviado") },
   { name: "transferencia_terceros", matches: subjectHas("Transferencia a Terceros"), parse: transferToOthers("Monto transferido") },
+
+  // ───── formato 15: pago con QR / yapeo a celular desde la app del BCP ─────
+  { name: "pago_qr", matches: subjectHas("Constancia de Pago con QR"), parse: transferToOthers("Monto enviado") },
+
+  // ───── formato 16: adelanto de sueldo ─────
+  {
+    name: "adelanto_sueldo",
+    matches: subjectHas("Constancia de Adelanto de Sueldo"),
+    parse: (body) => {
+      const r = need(parseMoney(field(body, "Monto de adelanto")), parseEmailDate(field(body, "Fecha y hora")), "adelanto de sueldo");
+      if (isResult(r)) return r;
+      const to = last4After(body, "Desde");
+      if (!to) return fail("no se encontró la cuenta del adelanto");
+      const total = field(body, "Total a cobrar") ?? body.match(/Total a cobrar\*?\s*\*([^*]+)\*/)?.[1] ?? null;
+      return {
+        kind: "transactions",
+        txs: [
+          {
+            // Es parte del próximo sueldo pagada antes: entra como sueldo; el próximo llega reducido
+            // (adelanto + comisión). Así el total del año y los saldos cuadran.
+            type: "ingreso",
+            amount: r.money.amount,
+            currency: r.money.currency,
+            occurredAt: r.date,
+            account: { last4: to },
+            merchant: "Adelanto de sueldo BCP",
+            externalOpId: opId(body),
+            note: `Adelanto de sueldo: se descuentan ${total ?? "adelanto + comisión"} del próximo sueldo`,
+            categoryName: "Sueldo",
+          },
+        ],
+      };
+    },
+  },
 
   // ───── formato 4: entre mis cuentas ─────
   {
@@ -293,7 +342,8 @@ const PARSERS: Parser[] = [
     name: "retiro",
     matches: subjectHas("Realizaste un retiro"),
     parse: (body) => {
-      const r = need(parseMoney(field(body, "Monto retirado")), parseEmailDate(field(body, "Fecha y hora")), "retiro");
+      // Agente: "Monto retirado"; cajero: "Total retirado" (y la cuenta viene como XXX-XXXXXXXX-0-60).
+      const r = need(parseMoney(field(body, "Monto retirado") ?? field(body, "Total retirado")), parseEmailDate(field(body, "Fecha y hora")), "retiro");
       if (isResult(r)) return r;
       const account = last4After(body, "Cuenta de cargo");
       const card = last4After(body, "Número de Tarjeta de Débito");

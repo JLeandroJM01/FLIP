@@ -4,6 +4,9 @@ import { processPendingEmails } from "@/lib/ingest/process";
 import { purgeOldEmailBodies, registerAutoDebits, registerIncomeEvents, registerSalaryPayments } from "@/lib/ingest/recurring";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Hasta 60 s por ejecución (Vercel Hobby).
+export const maxDuration = 60;
+
 // Tarea diaria (Vercel Cron, ver vercel.json). Vercel manda "Authorization: Bearer $CRON_SECRET".
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -16,7 +19,7 @@ export async function GET(request: NextRequest) {
     salary: await registerSalaryPayments(db, today),
     incomeEvents: await registerIncomeEvents(db, today), // gratificación, CTS, utilidades
     autoDebits: await registerAutoDebits(db, today), // cuota del crédito Yape (día 28)
-    emails: await processPendingEmails(db), // reintenta los correos con error (p. ej. sin tipo de cambio)
+    emails: await processPendingEmails(db, { retryErrors: true, retryUnknown: true }), // reintentos (p. ej. sin tipo de cambio)
     purge: await purgeOldEmailBodies(db),
   };
   return NextResponse.json({ ok: true, today, ...result });

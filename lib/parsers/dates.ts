@@ -9,7 +9,7 @@
 const MONTHS: Record<string, number> = {
   ene: 1, enero: 1, jan: 1, feb: 2, febrero: 2, mar: 3, marzo: 3, abr: 4, abril: 4, apr: 4,
   may: 5, mayo: 5, jun: 6, junio: 6, jul: 7, julio: 7, ago: 8, agosto: 8, aug: 8,
-  set: 9, sep: 9, setiembre: 9, septiembre: 9, oct: 10, octubre: 10, nov: 11, noviembre: 11,
+  set: 9, sep: 9, sept: 9, setiembre: 9, septiembre: 9, oct: 10, octubre: 10, nov: 11, noviembre: 11,
   dic: 12, diciembre: 12, dec: 12,
 };
 

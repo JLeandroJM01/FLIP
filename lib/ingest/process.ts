@@ -3,7 +3,7 @@ import "server-only";
 // Se ejecuta en cada POST /api/ingest y en la tarea diaria (reintenta los que fallaron).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { round2 } from "@/lib/finance";
-import { fetchBcrpRate } from "@/lib/fx/bcrp";
+import { fetchOfficialRate } from "@/lib/fx";
 import { limaDateKey } from "@/lib/dates";
 import { parseEmail, PARSER_VERSION, type ParsedTx, type ParseResult } from "@/lib/parsers";
 import type { Database } from "@/lib/supabase/database.types";
@@ -47,9 +47,9 @@ async function fxRateFor(db: DB, date: Date): Promise<number | null> {
     .limit(1)
     .maybeSingle();
   if (data?.date === day) return Number(data.usd_pen);
-  const quote = await fetchBcrpRate(day);
+  const quote = await fetchOfficialRate(day);
   if (quote) {
-    await db.from("fx_rates").upsert({ date: quote.date, usd_pen: quote.usdPen, source: "bcrp" });
+    await db.from("fx_rates").upsert({ date: quote.date, usd_pen: quote.usdPen, source: quote.source ?? "bcrp" });
     return quote.usdPen;
   }
   if (data) return Number(data.usd_pen);
@@ -146,13 +146,15 @@ async function saveTransaction(db: DB, ctx: Context, raw: RawEmail, parser: stri
 async function applyReversal(db: DB, ctx: Context, raw: RawEmail, parser: string, r: Extract<ParseResult, { kind: "reversal" }>): Promise<Outcome> {
   const accountId = resolveAccount(r.account, ctx.accounts, ctx.yapeAccountId);
   if (!accountId) return { status: "error", parser, message: "cuenta desconocida en la devolución" };
+  // Si este correo ya se leyó antes (sin encontrar el original), se quita lo que creó y se vuelve a intentar.
+  await db.from("transactions").delete().eq("raw_email_id", raw.id).eq("status", "por_revisar");
   const since = new Date(r.occurredAt.getTime() - 30 * 24 * 3600 * 1000).toISOString();
   const { data: originals } = await db
     .from("transactions")
     .select("id, merchant, note")
     .eq("account_id", accountId)
     .eq("type", "gasto")
-    .eq("status", "confirmado")
+    .in("status", ["confirmado", "por_revisar"])
     .eq("amount", r.amount)
     .gte("occurred_at", since)
     .lte("occurred_at", r.occurredAt.toISOString())
@@ -226,12 +228,28 @@ async function processOne(db: DB, ctx: Context, raw: RawEmail): Promise<Outcome>
   }
 }
 
-/** Procesa los correos pendientes o con error, del más antiguo al más nuevo. */
-export async function processPendingEmails(db: DB, limit = 200): Promise<ProcessSummary> {
+export type ProcessOptions = {
+  /** Reintentar los que fallaron (p. ej. sin tipo de cambio). Lo hacen la tarea diaria y Ajustes, no cada ingesta. */
+  retryErrors?: boolean;
+  /** Volver a leer los desconocidos con una versión anterior del lector. */
+  retryUnknown?: boolean;
+  limit?: number;
+};
+
+/** Procesa los correos pendientes (y, si se pide, los que fallaron), del más antiguo al más nuevo. */
+export async function processPendingEmails(db: DB, options: ProcessOptions = {}): Promise<ProcessSummary> {
+  const { retryErrors = false, retryUnknown = false, limit = 200 } = options;
+  const filters = ["parse_status.eq.pendiente"];
+  if (retryErrors) filters.push("parse_status.eq.error");
+  if (retryUnknown) {
+    filters.push(`and(parse_status.eq.desconocido,parser_version.neq.${PARSER_VERSION})`);
+    // Devoluciones leídas con una versión anterior (antes solo buscaban el original entre los confirmados).
+    filters.push(`and(parser.eq.devolucion,parser_version.neq.${PARSER_VERSION})`);
+  }
   const { data: pending } = await db
     .from("raw_emails")
     .select("id, subject, body, received_at")
-    .in("parse_status", ["pendiente", "error"])
+    .or(filters.join(","))
     .order("received_at", { ascending: true })
     .limit(limit);
   const summary: ProcessSummary = { processed: 0, ok: 0, ignored: 0, unknown: 0, errors: 0 };

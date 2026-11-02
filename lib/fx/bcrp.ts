@@ -11,7 +11,7 @@ const MONTHS: Record<string, number> = {
   jul: 7, ago: 8, set: 9, sep: 9, oct: 10, nov: 11, dic: 12,
 };
 
-export type FxQuote = { date: string; usdPen: number };
+export type FxQuote = { date: string; usdPen: number; source?: "bcrp" | "sunat" };
 
 type BcrpResponse = { periods?: { name: string; values: string[] }[] };
 
@@ -26,7 +26,7 @@ export function parseBcrpResponse(json: unknown): FxQuote[] {
     const value = Number(p.values?.[0]);
     if (!m || !month || !Number.isFinite(value) || value <= 0) continue;
     const date = `20${m[3]}-${String(month).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
-    quotes.push({ date, usdPen: value });
+    quotes.push({ date, usdPen: value, source: "bcrp" });
   }
   return quotes.sort((a, b) => a.date.localeCompare(b.date));
 }

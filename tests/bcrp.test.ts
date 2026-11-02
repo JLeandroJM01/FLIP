@@ -13,14 +13,22 @@ describe("parseBcrpResponse", () => {
       ],
     };
     expect(parseBcrpResponse(json)).toEqual([
-      { date: "2026-09-15", usdPen: 3.5 },
-      { date: "2026-10-29", usdPen: 3.452 },
-      { date: "2026-11-02", usdPen: 3.448 },
+      { date: "2026-09-15", usdPen: 3.5, source: "bcrp" },
+      { date: "2026-10-29", usdPen: 3.452, source: "bcrp" },
+      { date: "2026-11-02", usdPen: 3.448, source: "bcrp" },
     ]);
   });
 
   it("si no es la respuesta esperada, devuelve vacío", () => {
     expect(parseBcrpResponse("<html>Pardon Our Interruption</html>")).toEqual([]);
     expect(parseBcrpResponse(null)).toEqual([]);
+  });
+});
+
+describe("SUNAT", () => {
+  it("lee el texto del día (venta)", async () => {
+    const { parseSunatText } = await import("@/lib/fx/sunat");
+    expect(parseSunatText("02/11/2026|3.458|3.467|\n")).toEqual({ date: "2026-11-02", usdPen: 3.467, source: "sunat" });
+    expect(parseSunatText("<html>error</html>")).toBeNull();
   });
 });

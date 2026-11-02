@@ -3,6 +3,9 @@ import { ingestPayloadSchema, isFresh, isValidSignature } from "@/lib/ingest/pay
 import { processPendingEmails } from "@/lib/ingest/process";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Hasta 60 s por petición (Vercel Hobby).
+export const maxDuration = 60;
+
 // POST /api/ingest — recibe correos del Apps Script de Gmail (SPEC 3.2).
 // Verifica la firma, guarda cada correo una sola vez en raw_emails y procesa los pendientes
 // (también los que fallaron antes): así un probarConexion() vacío reintenta todo.

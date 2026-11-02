@@ -181,7 +181,7 @@ export async function saveManualFx(_prev: ActionState, fd: FormData): Promise<Ac
   const { error } = await supabase.from("fx_rates").upsert({ ...parsed.data, source: "manual" });
   if (error) return { ok: false, message: "No se pudo guardar" };
   // Reintenta los correos en dólares que esperaban un tipo de cambio.
-  const { ok } = await processPendingEmails(supabase);
+  const { ok } = await processPendingEmails(supabase, { retryErrors: true });
   return done(ok ? `Tipo de cambio guardado · ${ok} correo(s) procesado(s)` : "Tipo de cambio guardado");
 }
 

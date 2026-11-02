@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { fromLimaDateTimeLocal, limaDateKey } from "@/lib/dates";
-import { fetchBcrpRate } from "@/lib/fx/bcrp";
+import { fetchOfficialRate } from "@/lib/fx";
 import { formDataToTransactionInput } from "@/lib/transaction-input";
 import type { Person, TxStatus } from "@/lib/types";
 
@@ -142,10 +142,10 @@ export async function getFxRate(date: string): Promise<{ rate: number; source: s
     .maybeSingle();
   if (data?.date === date) return { rate: Number(data.usd_pen), source: data.source, date: data.date };
 
-  const quote = await fetchBcrpRate(date);
+  const quote = await fetchOfficialRate(date);
   if (quote) {
-    await supabase.from("fx_rates").upsert({ date: quote.date, usd_pen: quote.usdPen, source: "bcrp" });
-    return { rate: quote.usdPen, source: "bcrp", date: quote.date };
+    await supabase.from("fx_rates").upsert({ date: quote.date, usd_pen: quote.usdPen, source: quote.source ?? "bcrp" });
+    return { rate: quote.usdPen, source: "oficial", date: quote.date };
   }
   return data ? { rate: Number(data.usd_pen), source: data.source, date: data.date } : null;
 }
@@ -207,4 +207,13 @@ export async function dismissSharedPrompt(transactionId: string): Promise<Action
   await supabase.from("transactions").update({ shared_dismissed: true }).eq("id", transactionId);
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+/** "Volver a leer" los correos sin entender o con error (después de corregir un lector o poner un tipo de cambio). */
+export async function reprocessEmails(): Promise<ActionState> {
+  const { supabase } = await requireUser();
+  const { processPendingEmails } = await import("@/lib/ingest/process");
+  const r = await processPendingEmails(supabase, { retryErrors: true, retryUnknown: true });
+  revalidatePath("/", "layout");
+  return { ok: true, message: `Procesados ${r.processed}: ${r.ok} bien, ${r.ignored} ignorados, ${r.unknown} sin entender, ${r.errors} con error` };
 }

@@ -162,3 +162,24 @@ describe("ingesta de punta a punta", () => {
     expect(count).toBe(txs.length);
   });
 });
+
+describe("volver a leer una devolución con un lector nuevo", () => {
+  it("anula el envío original aunque estuviera por revisar y quita el ingreso que había creado", async () => {
+    const { data: ahorros } = await db.from("accounts").select("id").eq("name", "Cuenta de ahorros soles").single();
+    const at = "2026-10-21T12:00:00-05:00";
+    const { data: original } = await db
+      .from("transactions")
+      .insert({ occurred_at: at, amount: 500, amount_pen: 500, account_id: ahorros!.id, type: "gasto", merchant: "PLIN-LUIS TORRES", status: "por_revisar", source: "gmail" })
+      .select("id")
+      .single();
+    // Simula lo que dejó la versión 1: el correo "ok" con un ingreso por revisar.
+    await db.from("raw_emails").update({ parse_status: "ok", parser: "devolucion", parser_version: "1" }).eq("gmail_message_id", `${PREFIX}devolucion.txt`);
+    await processPendingEmails(db, { retryUnknown: true });
+    const { data: after } = await db.from("transactions").select("status").eq("id", original!.id).single();
+    expect(after?.status).toBe("anulado");
+    expect(byFixture("devolucion")).toHaveLength(1); // el ingreso viejo (de la 1ra lectura) sigue en el array local…
+    const { data: still } = await db.from("transactions").select("id, raw:raw_emails!inner(gmail_message_id)").eq("raw.gmail_message_id", `${PREFIX}devolucion.txt`);
+    expect(still).toEqual([]); // …pero en la base ya no existe
+    await db.from("transactions").delete().eq("id", original!.id);
+  });
+});

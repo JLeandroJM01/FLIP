@@ -70,13 +70,16 @@ describe("ingresos y cobros automáticos (SPEC 9 y 11)", () => {
 
   it("la cuota del crédito Yape del 28 nov se cobra sola y baja el saldo", async () => {
     const { data: before } = await db.from("debts").select("id, balance, installments_paid, next_due_date").eq("name", "Crédito Yape").single();
-    expect(await registerAutoDebits(db, "2026-11-28")).toEqual({ registered: 1 });
-    expect(await registerAutoDebits(db, "2026-11-28")).toEqual({ registered: 0 });
-    const { data: after } = await db.from("debts").select("balance, installments_paid, next_due_date").eq("id", before!.id).single();
-    expect(after).toEqual({ balance: 1937.11, installments_paid: 3, next_due_date: "2026-12-28" });
-    // restaurar
-    await db.from("debt_payments").delete().eq("debt_id", before!.id);
-    await db.from("transactions").delete().eq("type", "pago_deuda").eq("source", "recurrente");
-    await db.from("debts").update({ balance: before!.balance, installments_paid: before!.installments_paid, next_due_date: before!.next_due_date }).eq("id", before!.id);
+    try {
+      expect(await registerAutoDebits(db, "2026-11-28")).toEqual({ registered: 1 });
+      expect(await registerAutoDebits(db, "2026-11-28")).toEqual({ registered: 0 });
+      const { data: after } = await db.from("debts").select("balance, installments_paid, next_due_date").eq("id", before!.id).single();
+      expect(after).toEqual({ balance: 1937.11, installments_paid: 2, next_due_date: "2026-12-28" }); // 9 cuotas: 1 pagada + la del 28 nov
+    } finally {
+      // restaurar siempre (aunque falle), para no ensuciar la base local de los tests e2e
+      await db.from("debt_payments").delete().eq("debt_id", before!.id);
+      await db.from("transactions").delete().eq("type", "pago_deuda").eq("source", "recurrente");
+      await db.from("debts").update({ balance: before!.balance, installments_paid: before!.installments_paid, next_due_date: before!.next_due_date }).eq("id", before!.id);
+    }
   });
 });

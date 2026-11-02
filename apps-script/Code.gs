@@ -26,8 +26,10 @@ function procesarNuevos() {
 /** Primera carga: historial de los últimos `dias` días (por defecto 90). */
 function backfill(dias) {
   const n = procesar_(typeof dias === 'number' ? dias : 90);
-  Logger.log('Backfill: ' + n.enviados + ' correos enviados en ' + n.hilos + ' conversaciones.' +
-    (n.cortado ? ' Se cortó por tiempo: ejecuta backfill() otra vez para seguir.' : ' Terminado.'));
+  Logger.log('Backfill: ' + n.enviados + ' correos enviados en ' + n.hilos + ' conversaciones. ' +
+    (n.error ? 'Se detuvo por un error de FLIP (' + n.error + '): revisa el registro y vuelve a ejecutar backfill().'
+      : n.cortado ? 'Se cortó por tiempo (Google da 6 minutos): ejecuta backfill() otra vez para seguir.'
+        : 'Terminado: ya no quedan correos por enviar.'));
 }
 
 /** Crea (una sola vez) el disparador cada 5 minutos y la etiqueta. */
@@ -73,15 +75,17 @@ function procesar_(dias) {
         .map(aPayload_);
 
       let ok = true;
+      let ultimoError = null;
       for (let j = 0; j < mensajes.length; j += BATCH_SIZE) {
         const res = enviar_(mensajes.slice(j, j + BATCH_SIZE));
         if (!res.ok) {
           ok = false;
+          ultimoError = 'HTTP ' + res.code;
           Logger.log('Error ' + res.code + ' en "' + thread.getFirstMessageSubject() + '": ' + res.text);
           break;
         }
       }
-      if (!ok) return { enviados: enviados, hilos: hilos, cortado: true }; // se reintenta en la próxima vuelta
+      if (!ok) return { enviados: enviados, hilos: hilos, cortado: true, error: ultimoError }; // se reintenta en la próxima vuelta
       thread.addLabel(label);
       enviados += mensajes.length;
       hilos++;

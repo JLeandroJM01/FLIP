@@ -58,8 +58,16 @@ for (const vp of VIEWPORTS) {
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       await page.waitForTimeout(300); // gráfico
       await page.screenshot({ path: `e2e/screenshots/${name}-${vp.name}.png`, fullPage: true });
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      expect(overflow, `${path} se desborda en ${vp.name}px`).toBeLessThanOrEqual(0);
+      // Elementos que se salen del ancho (sin contar los que están dentro de un contenedor con scroll).
+      const wide = await page.evaluate(() => {
+        const scrolls = (el: Element | null): boolean =>
+          !!el && el !== document.body && (/(auto|scroll)/.test(getComputedStyle(el).overflowX) || scrolls(el.parentElement));
+        return [...document.querySelectorAll("main *")]
+          .filter((el) => el.getBoundingClientRect().right > window.innerWidth + 0.5 && !scrolls(el.parentElement))
+          .slice(-3)
+          .map((el) => `${el.tagName} «${(el.textContent ?? "").slice(0, 50)}»`);
+      });
+      expect(wide, `${path} se desborda en ${vp.name}px`).toEqual([]);
     }
   });
 }

@@ -177,3 +177,39 @@ describe("correos que no son movimientos y desconocidos", () => {
     expect(r).toMatchObject({ kind: "unknown", reason: expect.stringContaining("fecha") });
   });
 });
+
+describe("formatos encontrados en el backfill (texto real, anonimizado)", () => {
+  const parse = (subject: string, body: string) => parseEmail({ subject, body });
+  it("retiro en cajero: 'Total retirado', cuenta enmascarada → por la tarjeta", () => {
+    const r = parse(
+      "Realizaste un retiro en un cajero automático BCP - Servicio de Notificaciones BCP",
+      "*Montos*\nTotal retirado *S/ 170.00* \nComisión por operación  *GRATIS* \nFecha y hora *19 de setiembre de 2026 - 06:45 PM* \nNúmero de Tarjeta de Débito *************4039* \nCuenta de cargo *XXX-XXXXXXXX-0-60* \nNúmero de operación *4105* ",
+    ).result as Extract<ParseResult, { kind: "transactions" }>;
+    expect(r.txs).toHaveLength(1);
+    expect(r.txs[0]).toMatchObject({ type: "retiro_efectivo", amount: 170, account: { cardLast4: "4039" } });
+  });
+  it("Yape Promos con 'sept.'", () => {
+    const r = parse("Envío Automático - Constancia de Transferencia - Yape", "¡Tu pago en Yape Promos fue exitoso!\nMonto total\nS/ 27.80\nFecha y hora: 29 sept. 2026 - 07:21 p. m.\nNúmero de\noperación Yape: 1423261");
+    expect(r.result).toMatchObject({ kind: "transactions", txs: [{ amount: 27.8, occurredAt: new Date("2026-09-29T19:21:00-05:00") }] });
+  });
+  it("pago con QR (yapeo a celular desde la app BCP) = pago a persona por revisar", () => {
+    const r = parse(
+      "Constancia de Pago con QR - Servicios de Notificaciones BCP",
+      "Monto enviado *S/ 20.00* \nFecha y hora *04 de septiembre de 2026 - 08:55 PM* \nEnviado a *Pedro Perez C.*\nDestino *Yape* \nDesde *Cuenta de ahorro*\n**** 2046 \nNúmero de operación *05055670* ",
+    ).result as Extract<ParseResult, { kind: "transactions" }>;
+    expect(r.txs[0]).toMatchObject({ type: "gasto", amount: 20, account: { last4: "2046" }, review: true, personHint: "Pedro Perez C" });
+  });
+  it("adelanto de sueldo entra como Sueldo (el próximo sueldo llega reducido)", () => {
+    const r = parse(
+      "Constancia de Adelanto de Sueldo - Servicio de Notificaciones BCP",
+      "Monto de adelanto *S/ 910.00* \nComisión *S/ 35.00* \n*Total a cobrar* *S/ 945.00* \nFecha y hora *2 de septiembre de 2026 - 12:52 PM* \nDesde *Cuenta Sueldo*\n**** 2046 \nNúmero de operación *02349798* ",
+    ).result as Extract<ParseResult, { kind: "transactions" }>;
+    expect(r.txs[0]).toMatchObject({ type: "ingreso", amount: 910, account: { last4: "2046" }, categoryName: "Sueldo" });
+    expect(r.txs[0].note).toContain("S/ 945.00");
+  });
+  it.each([
+    "Constancia de envío de Estado de Cuenta - Servicio de Notificaciones BCP",
+    "Tu crédito ya está disponible en tu cuenta Yape",
+    "Tu fecha de pago está cerca",
+  ])("se ignora: %s", (subject) => expect(parse(subject, "S/ 1.00").result.kind).toBe("ignore"));
+});

@@ -34,3 +34,6 @@ e2e/screenshots/
 .pnp
 .pnp.*
 npm-debug.log*
+
+# sesión local de Playwright
+e2e/.auth/

@@ -16,19 +16,25 @@
 
 ## Estructura
 ```
-app/                    rutas (App Router)
-components/             UI (components/ui = shadcn)
-lib/supabase/           clientes de Supabase (browser, server, middleware)
-lib/finance/            funciones PURAS: impuesto de quinta, AFP, gratificación, utilidades, neto, proyección, deudas
-lib/parsers/            un archivo por formato de correo + index.ts que decide por asunto (Fase 2)
-lib/format.ts           formato de soles (S/) y dólares (US$) en es-PE
-lib/dates.ts            día y mes en hora de Lima (rangos de mes, datetime-local)
-supabase/migrations/    esquema SQL (tablas de la sección 6 del SPEC)
-supabase/seed.sql       datos iniciales (cuentas, categorías, reglas, deudas, perfil de ingresos, settings)
-scripts/                utilidades de línea de comandos (allow-email)
+app/(app)/              pantallas con sesión: Inicio, movimientos/, metas/, mas/, ajustes/ (+ actions.ts)
+app/login, app/auth/    login con Google, callback y cierre de sesión
+proxy.ts                (ex middleware) refresca la sesión y bloquea correos no permitidos
+components/ui/          shadcn (botones táctiles: size="touch" | "icon-touch", ≥ 44 px)
+components/shell/       barra lateral (md+) y barra inferior (celular)
+components/quick-add/   registro rápido (hoja inferior en celular, diálogo en md+)
+components/transactions lista de movimientos (tarjetas < lg, tabla en lg)
+lib/supabase/           clientes (browser, server, proxy) y database.types.ts (npm run db:types)
+lib/data.ts             consultas del servidor (catálogos, resumen del mes…)
+lib/finance/            funciones PURAS: AFP, quinta, gratificación, utilidades, neto, resumen del mes
+lib/transaction-input.ts validación (zod) del formulario de movimientos
+lib/fx/bcrp.ts          tipo de cambio del BCRP
+lib/format.ts, dates.ts formato es-PE (S/, US$, fechas armadas a mano) y hora de Lima
+lib/parsers/            un archivo por formato de correo + index.ts (Fase 2)
+supabase/migrations/    esquema (sección 6) y RLS; supabase/seed.sql datos iniciales
+scripts/                allow-email.mjs
+tests/                  Vitest (tests/db = RLS contra Supabase local); tests/fixtures/emails (Fase 2)
+e2e/                    Playwright (sesión local en auth.setup.ts; capturas en e2e/screenshots/)
 apps-script/Code.gs     script de Gmail (Fase 2)
-tests/                  tests unitarios; tests/fixtures/emails/ para los parsers
-e2e/                    Playwright (capturas en 375, 768 y 1440 px)
 ```
 
 ## Comandos
@@ -74,6 +80,11 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - Nada de secretos en el código: `.env.local` (no se versiona) y `.env.example` como plantilla.
 - Variables: `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ALLOWED_EMAIL`, `INGEST_SECRET`, `ANTHROPIC_API_KEY` (opcional); para Supabase local, `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` y `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`.
 - Solo últimos 4 dígitos de tarjetas. `raw_emails.body` se borra a los 90 días.
+
+## Gotchas
+- Fechas y horas que se renderizan en Client Components: usar `lib/format.ts` (armadas a mano). `Intl` da textos distintos en Node y Chrome ("a. m." con espacio duro) y rompe la hidratación.
+- Dentro de `DialogContent` (es un grid) los hijos con scroll horizontal necesitan `min-w-0`.
+- Los movimientos guardan `amount` (original), `currency`, `fx_rate` y `amount_pen`; los reportes usan siempre `amount_pen`.
 
 ## Forma de trabajo
 - **Claude no hace operaciones de git** (ni init, commit, push ni clone): las hace solo José. Claude deja los cambios en pasos pequeños y propone el mensaje de commit de cada uno.

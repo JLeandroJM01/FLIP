@@ -103,6 +103,8 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - Si cambia la lógica de un parser, subir `PARSER_VERSION`.
 
 ## Gotchas
+- **Nunca correr `npm run test:db` con las variables de `.env.local` exportadas en la terminal** (`set -a; . .env.local`): Node no pisa variables existentes y los tests borrarían datos de PRODUCCIÓN. `vitest.db.config.mts` aborta si `SUPABASE_URL` no es local. Para leer producción, hacerlo en un subshell `( … )` aparte.
+- `/api/ingest` procesa solo los correos nuevos/pendientes; los que fallaron los reintenta la tarea diaria o el botón "Volver a leer" (si no, cada envío del Apps Script se vuelve lento).
 - Fechas y horas que se renderizan en Client Components: usar `lib/format.ts` (armadas a mano). `Intl` da textos distintos en Node y Chrome ("a. m." con espacio duro) y rompe la hidratación.
 - Dentro de `DialogContent` (es un grid) los hijos con scroll horizontal necesitan `min-w-0`.
 - Los movimientos guardan `amount` (original), `currency`, `fx_rate` y `amount_pen`; los reportes usan siempre `amount_pen`.

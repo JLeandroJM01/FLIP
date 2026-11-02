@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.11 — 2 de noviembre de 2026 (Fase 3: la empresa sale del proyecto; orden de deudas, fechas de pago, AFP, meta 30%). 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
+**Versión:** 1.12 — 2 de noviembre de 2026 (backfill real: cuenta ****8175, crédito Yape de 9 cuotas, formatos 15–16, tipo de cambio de SUNAT). 1.11 — 2 de noviembre de 2026 (Fase 3: la empresa sale del proyecto; orden de deudas, fechas de pago, AFP, meta 30%). 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -37,7 +37,7 @@ Una web personal **100% responsive** (se abre en el navegador y se acomoda al ce
 | Lectura de Gmail | Google Apps Script en la cuenta de Gmail del usuario |
 | Diseño | Responsive, primero el celular (Tailwind breakpoints). **Sin PWA ni service worker** |
 | Identidad visual | Nombre **FLIP**. Estilo tecnológico, **tema oscuro**: fondos casi negros y **verde** como color principal (inspirado en la paleta de Supabase) |
-| Tipo de cambio | API pública del BCRP (desde la Fase 1, para que sea real), con respaldo manual. Si un día no hay dato (fin de semana o feriado), usar el último disponible |
+| Tipo de cambio | **SUNAT** (`/a/txt/tipoCambio.txt`, venta del día; responde desde Vercel), luego BCRP (bloquea a servidores con una página antibots) y respaldo manual. Para fechas sin dato se usa el más cercano guardado. Si un día no hay dato (fin de semana o feriado), usar el último disponible |
 | IA para clasificar (opcional) | API de Claude (Haiku) solo para correos que no se entienden; costo de centavos al mes |
 
 **Login:** solo con Google, y solo se permite el correo del usuario (lista de permitidos). RLS activado en todas las tablas.
@@ -88,7 +88,7 @@ Cuentas reales en la app del BCP: **Corriente soles**, **Ahorros soles**, **Dól
 |---|---|---|---|
 | Cuenta corriente soles (sueldo) | Corriente | "Cuenta sueldo ****2046" (pago de tarjeta) o "Clasica ****2046" (transferencias) | Aquí entra el sueldo; desde aquí se paga la tarjeta |
 | Cuenta de ahorros soles | Ahorros | "Clasica ****6060"; es la "Cuenta de cargo ****6060" de la tarjeta de débito | **Está asociada a Yape** y a la tarjeta de débito ****4039. Los Plin salen de aquí |
-| Cuenta en dólares | Ahorros (US$) | ****? (por confirmar) | También asociada a la tarjeta de débito ****4039, solo por si acaso |
+| Cuenta en dólares | Ahorros (US$) | "Cuenta digital ****8175" (Moneda Dólares) | También asociada a la tarjeta de débito ****4039, solo por si acaso |
 | Visa Oro LATAM Pass ****6129 | Crédito (S/; los consumos en US$ se facturan en dólares) | "****6129" | Línea S/ 6,750. Pago el día 5 de cada mes |
 | CTS soles | Activo (no líquido) | Manual | Depósitos en mayo y noviembre |
 | Efectivo | Billetera | Retiros de cajero | Ver la regla de efectivo abajo |
@@ -128,6 +128,9 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 | 12 | `Constancia de Transferencia - Yape` con "¡Tu pago en Yape Promos fue exitoso!" | **gasto** (cuenta de ahorros, comercio "Yape Promos"); categoría por_revisar | Monto total, Fecha y hora, Número de operación Yape (no trae comercio) |
 | 13 | `Tu compra de … fue exitosa` (Yape) | **gasto** en la cuenta de Yape. Llega junto con el formato 12 por la misma compra: se fusionan y se queda el comercio real (p. ej. Norky's) | Comercio, Monto total, Fecha y hora `01/11/2026 a las 20:15` |
 | 14 | `Hola, te compartimos el comprobante de tu depósito recibido` (Yape) | **ingreso por_revisar** (puede ser un reembolso, un retiro de otra billetera o un ingreso) en la cuenta "**** 060" (= ****6060) | De, Monto `S/50`, Fecha `1 nov. 2026, 9:55 p. m.`, N° de cuenta, N° de operación, Mensajes |
+| 15 | `Constancia de Pago con QR` (yapeo a celular desde la app BCP) | **por_revisar** como pago a persona (igual que el formato 3) | Monto enviado, Enviado a, Destino, Desde (****), Número de operación |
+| 16 | `Constancia de Adelanto de Sueldo` | **ingreso** categoría Sueldo (es el próximo sueldo pagado antes); el sueldo siguiente llega reducido en adelanto + comisión | Monto de adelanto, Comisión, Total a cobrar, Desde (****2046) |
+| — | `Constancia de envío de Estado de Cuenta`, `Tu crédito ya está disponible en tu cuenta Yape` (desembolso: la deuda está en la sección 11), `Tu fecha de pago está cerca` | **se ignoran** | — |
 | — | `Se rechazó tu compra por fondos insuficientes` | **se ignora** (no hubo cobro; el cobro real llega después como formato 1) | — |
 | — | `Constancia de Configuración de Tarjeta en Banca Móvil BCP` | **se ignora** (no es un movimiento) | — |
 | ? | Cualquier otro de BCP o Yape | **por_revisar** + IA opcional | Texto completo |
@@ -318,7 +321,7 @@ Ciertos gastos con comprobante electrónico a tu DNI (restaurantes, hoteles, alq
 | Deuda | Moneda | Saldo | Condiciones | Costo |
 |---|---|---|---|---|
 | Tarjeta Visa Oro (consumos por pagar) | S/ + US$ | S/ 6,568.52 | Pagar el total los días 5 | 0% si pagas el total |
-| Crédito Yape | S/ | S/ 2,213.84 (8 cuotas × S/ 276.73). Préstamo de S/ 2,000 en 10 cuotas; 2 ya pagadas | Cobro automático el día 28; termina el 28 jun 2027 | **TCEA ~110%** (calculada: S/ 2,000 en 10 cuotas de S/ 276.73) |
+| Crédito Yape | S/ | S/ 2,213.84 (8 cuotas × S/ 276.73). Préstamo de S/ 2,000 en **9 cuotas** (total S/ 2,490.55, según el correo del desembolso); 1 pagada (28 oct) | Cobro automático el día 28; termina el 28 jun 2027 | **TCEA 72.09%** (calculada con las 9 cuotas) |
 | Daniela (novia) | **US$** | **US$ 489** (~S/ 1,687 a S/ 3.45) | Sin interés | 0% (pero el tipo de cambio puede variar) |
 | Walter (compañero) | S/ | S/ 2,000 | Sin interés | 0% |
 | **Total** | | **~S/ 12,470** | | |

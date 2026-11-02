@@ -29,39 +29,45 @@ export function formatMoney(amount: number, currency: Currency): string {
   return currency === "USD" ? formatUSD(amount) : formatPEN(amount);
 }
 
+// Fechas y horas armadas a mano: Intl varía entre Node y el navegador (espacios duros,
+// "a. m." vs "a.m."), y esa diferencia rompe la hidratación de React.
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre"];
+const MONTHS_SHORT = ["ene.", "feb.", "mar.", "abr.", "may.", "jun.", "jul.", "ago.", "set.", "oct.", "nov.", "dic."];
+const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/** Partes de un instante en hora de Lima (UTC−5 fijo, sin horario de verano). */
+function limaClock(date: Date | string) {
+  const d = new Date(new Date(date).getTime() - 5 * 3_600_000);
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth(),
+    day: d.getUTCDate(),
+    weekday: d.getUTCDay(),
+    hour: d.getUTCHours(),
+    minute: d.getUTCMinutes(),
+  };
+}
+
 /** `2 nov.` */
 export function formatShortDate(date: Date | string): string {
-  return new Intl.DateTimeFormat("es-PE", {
-    timeZone: LIMA_TZ,
-    day: "numeric",
-    month: "short",
-  }).format(new Date(date));
+  const c = limaClock(date);
+  return `${c.day} ${MONTHS_SHORT[c.month]}`;
 }
 
 /** `lunes, 2 de noviembre` */
 export function formatDayHeading(date: Date | string): string {
-  return new Intl.DateTimeFormat("es-PE", {
-    timeZone: LIMA_TZ,
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  }).format(new Date(date));
+  const c = limaClock(date);
+  return `${WEEKDAYS[c.weekday]}, ${c.day} de ${MONTHS[c.month]}`;
 }
 
 /** `12:30 a. m.` */
 export function formatTime(date: Date | string): string {
-  return new Intl.DateTimeFormat("es-PE", {
-    timeZone: LIMA_TZ,
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(date));
+  const c = limaClock(date);
+  const h12 = c.hour % 12 === 0 ? 12 : c.hour % 12;
+  return `${h12}:${String(c.minute).padStart(2, "0")} ${c.hour < 12 ? "a. m." : "p. m."}`;
 }
 
 /** `noviembre de 2026` */
 export function formatMonth(year: number, month: number): string {
-  return new Intl.DateTimeFormat("es-PE", {
-    timeZone: "UTC",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(Date.UTC(year, month - 1, 15)));
+  return `${MONTHS[month - 1]} de ${year}`;
 }

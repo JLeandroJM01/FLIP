@@ -3,9 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 
 const PUBLIC_PATHS = ["/login", "/auth/callback"];
+// Llamadas de máquina a máquina: se autentican con su propia firma, no con sesión.
+const MACHINE_PATHS = ["/api/ingest"];
 
 /** Refresca la sesión en cada request y protege todas las rutas salvo el login. */
 export async function updateSession(request: NextRequest) {
+  if (MACHINE_PATHS.includes(request.nextUrl.pathname)) return NextResponse.next();
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

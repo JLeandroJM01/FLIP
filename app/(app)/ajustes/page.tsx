@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { currentYearMonth, limaDateKey } from "@/lib/dates";
-import { getCatalogs, getSettings } from "@/lib/data";
+import { getAccountBalances, getCatalogs, getSettings } from "@/lib/data";
 import { DEFAULT_AFP_RATES, type AfpRates } from "@/lib/finance";
-import { formatPEN } from "@/lib/format";
+import { formatMoney, formatPEN } from "@/lib/format";
 import type { DefaultAccounts } from "@/lib/types";
 import { saveAccount, saveCategory, saveManualFx, saveParameters, savePerson } from "./actions";
 
@@ -33,6 +33,7 @@ export default async function SettingsPage() {
     supabase.from("fx_rates").select("date, usd_pen, source").order("date", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
+  const balances = await getAccountBalances(supabase, catalogs);
   const uitByYear = (settings.uit ?? {}) as Record<string, number>;
   const uit = uitByYear[year] ?? latestValue(uitByYear);
   const afp = { ...DEFAULT_AFP_RATES, ...((settings.afp_rates ?? {}) as Partial<AfpRates>) };
@@ -143,8 +144,8 @@ export default async function SettingsPage() {
                   <span className="flex-1 truncate font-medium">{a.name}</span>
                   <span className="text-xs text-muted-foreground">
                     {ACCOUNT_TYPE_LABELS[a.type]} · {a.currency === "USD" ? "US$" : "S/"}
-                    {a.last4 && ` · ****${a.last4}`}
-                    {a.credit_limit != null && ` · línea ${formatPEN(Number(a.credit_limit))}`}
+                    {balances.get(a.id) != null &&
+                      ` · ${a.type === "credito" ? "usado " + formatPEN(-balances.get(a.id)!) : formatMoney(balances.get(a.id)!, a.currency)}`}
                   </span>
                 </>
               }
@@ -152,6 +153,7 @@ export default async function SettingsPage() {
               <SettingsForm action={saveAccount}>
                 <input type="hidden" name="id" value={a.id} />
                 <Field label="Nombre" name="name" defaultValue={a.name} id={a.id} />
+                <BalanceField accountId={a.id} isCredit={a.type === "credito"} currency={a.currency} balance={balances.get(a.id) ?? null} />
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Últimos 4 dígitos" name="last4" inputMode="numeric" maxLength={4} defaultValue={a.last4 ?? ""} id={a.id} />
                   <Field label="Tarjeta de débito asociada" name="card_last4" inputMode="numeric" maxLength={4} defaultValue={a.card_last4 ?? ""} id={a.id} />
@@ -284,6 +286,35 @@ function CategoryForm({ category }: { category?: { id: string; name: string; kin
         <Field label="Color" name="color" type="color" defaultValue={category?.color ?? "#3ecf8e"} id={key} className="[&_input]:p-1" />
       </div>
     </SettingsForm>
+  );
+}
+
+function BalanceField({
+  accountId,
+  isCredit,
+  currency,
+  balance,
+}: {
+  accountId: string;
+  isCredit: boolean;
+  currency: "PEN" | "USD";
+  balance: number | null;
+}) {
+  const shown = balance === null ? "" : String(isCredit ? -balance : balance);
+  const symbol = currency === "USD" ? "US$" : "S/";
+  return (
+    <>
+      <input type="hidden" name="balance_original" value={shown} />
+      <input type="hidden" name="is_credit" value={isCredit ? "1" : "0"} />
+      <Field
+        label={isCredit ? `Usado hoy de la línea (${symbol})` : `Saldo hoy (${symbol})`}
+        name="balance_now"
+        inputMode="decimal"
+        defaultValue={shown}
+        id={accountId}
+        hint="Lo que ves hoy en la app del banco. Si lo cambias, FLIP cuenta los movimientos desde ahora."
+      />
+    </>
   );
 }
 

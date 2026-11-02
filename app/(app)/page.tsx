@@ -2,12 +2,13 @@ import { AlertCircle, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/category-icon";
+import { AccountsCard } from "@/components/home/accounts-card";
 import { QuickActions } from "@/components/home/quick-actions";
 import { TransactionList } from "@/components/transactions/transaction-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { currentYearMonth, limaParts } from "@/lib/dates";
-import { countPendingReview, getCatalogs, getMonthSummary, getRecentTransactions, getSetting } from "@/lib/data";
+import { countPendingReview, getAccountBalances, getCatalogs, getMonthSummary, getRecentTransactions, getSetting } from "@/lib/data";
 import { formatMonth, formatPEN } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +19,12 @@ export default async function HomePage() {
   const now = new Date();
   const ym = currentYearMonth(now);
   const catalogs = await getCatalogs(supabase);
-  const [summary, recent, pending, budget] = await Promise.all([
+  const [summary, recent, pending, budget, balances] = await Promise.all([
     getMonthSummary(supabase, ym, catalogs),
     getRecentTransactions(supabase, 5),
     countPendingReview(supabase),
     getSetting<number>(supabase, "monthly_budget", 1500),
+    getAccountBalances(supabase, catalogs),
   ]);
 
   const cashAccountId = catalogs.accounts.find((a) => a.type === "billetera")?.id;
@@ -120,7 +122,7 @@ export default async function HomePage() {
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2 lg:col-span-1">
+        <Card>
           <CardHeader>
             <CardDescription>En qué se fue</CardDescription>
           </CardHeader>
@@ -140,6 +142,8 @@ export default async function HomePage() {
             )}
           </CardContent>
         </Card>
+
+        <AccountsCard accounts={catalogs.accounts} balances={balances} />
 
         <section className="space-y-3 md:col-span-2">
           <div className="flex items-center justify-between">
@@ -162,7 +166,7 @@ export default async function HomePage() {
             <CardDescription>Próximamente (Fase 3)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1 text-sm text-muted-foreground">
-            <p>A pagar tarjeta el 5</p>
+            <p>A pagar tarjeta el 5 (estimado del ciclo)</p>
             <p>Te deben</p>
             <p>Progreso de deudas</p>
             <p>Meta del depa</p>

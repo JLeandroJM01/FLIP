@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.6 — 1 de noviembre de 2026 (nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos)
+**Versión:** 1.7 — 2 de noviembre de 2026 (saldos de las cuentas). 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -98,6 +98,10 @@ Cuentas reales en la app del BCP: **Corriente soles**, **Ahorros soles**, **Dól
 - **Yape:** no es una cuenta aparte. Cobra de la cuenta de ahorros soles (débito ****4039), **no** de la tarjeta de crédito ****6129. Los Yapes que recibes también entran a la cuenta de ahorros soles.
 - Los correos mencionan "Clasica ****2046" y "Clasica ****6060": falta confirmar a cuál de las cuentas de arriba corresponde cada una (sección 17).
 
+**Saldos al 2 nov 2026** (lo que muestra la app del BCP): cuenta corriente soles (sueldo) **S/ 298.57** · cuenta de ahorros soles (Yape) **S/ 422.53** · cuenta en dólares **US$ 0** · CTS **S/ 0** · Visa Oro: **S/ 6,568.52 usados** (al 1 nov). Efectivo, Fondo AFP y Empresa: sin saldo registrado.
+
+**Cómo se calcula el saldo:** saldo inicial + movimientos confirmados desde la fecha de ese saldo. Gastos, retiros y pagos de deuda restan; ingresos y reembolsos suman; transferencias y pagos de tarjeta salen de la cuenta de origen y entran a la de destino (pagar la tarjeta baja lo usado). En la tarjeta el saldo es negativo (lo usado de la línea). Si el saldo no cuadra con el banco, se corrige en Ajustes ("Saldo hoy") y desde ese momento se vuelve a contar.
+
 **Regla de efectivo (no contar dos veces):**
 - Un retiro de cajero se cuenta como gasto en la categoría "Efectivo" (efectivo sin detallar).
 - Si registras a mano un gasto pagado en efectivo, ese gasto aparece en su categoría (Comida, Transporte…) y **se descuenta del "Efectivo" sin detallar**: el total gastado no cambia, solo ganas detalle.
@@ -142,7 +146,8 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 ## 6. Modelo de datos (Supabase)
 
 ```
-accounts            id, name, type(corriente|ahorros|debito|credito|billetera|activo|empresa), last4, currency, credit_limit, payment_day, closing_day
+accounts            id, name, type(corriente|ahorros|debito|credito|billetera|activo|empresa), last4, card_last4, currency, credit_limit, payment_day, closing_day,
+                    opening_balance, opening_balance_at (saldo inicial y su fecha; ver sección 4)
 categories          id, name, icon, color, parent_id, kind(gasto|ingreso)
 tags                id, name
 merchant_rules      id, pattern (regex o "empieza con"), category_id, tags[], tx_type, priority

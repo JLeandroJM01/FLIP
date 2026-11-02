@@ -56,6 +56,12 @@ test("Me yapearon resta del gastado; un ingreso suma al neto", async ({ page }) 
   // 12.50 + 180 − 60 = 132.50 gastado; 833 − 132.50 = 700.50 neto
   await expect(page.getByText("S/ 132.50").first()).toBeVisible();
   await expect(page.getByText("S/ 700.50")).toBeVisible();
+
+  // Saldos: corriente 298.57 + 833 = 1,131.57; ahorros 422.53 + 60 (yapeo) = 482.53.
+  // Los gastos fueron en Efectivo, que no tiene saldo inicial.
+  await expect(page.getByText("S/ 1,131.57")).toBeVisible();
+  await expect(page.getByText("S/ 482.53")).toBeVisible();
+  await expect(page.getByText("S/ 1,614.10")).toBeVisible();
 });
 
 test("editar y anular un movimiento desde Movimientos", async ({ page }) => {

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { monthRange, type YearMonth } from "@/lib/dates";
-import { monthlySummary, type SummaryTx } from "@/lib/finance";
+import { accountBalances, monthlySummary, type BalanceTx, type SummaryTx } from "@/lib/finance";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Catalogs, DefaultAccounts, TransactionRow } from "@/lib/types";
 
@@ -97,4 +97,35 @@ export async function getMonthSummary(supabase: DB, ym: YearMonth, catalogs: Cat
   }));
 
   return monthlySummary({ transactions, cashTotalsBefore, cashCategoryId });
+}
+
+/** Saldo actual por cuenta (null = sin saldo inicial). Ver lib/finance/balances. */
+export async function getAccountBalances(supabase: DB, catalogs: Catalogs) {
+  const withOpening = catalogs.accounts.filter((a) => a.opening_balance_at);
+  if (withOpening.length === 0) return accountBalances([], []);
+  const since = withOpening.map((a) => a.opening_balance_at!).sort()[0];
+  const { data } = await supabase
+    .from("transactions")
+    .select("type, status, occurred_at, amount, currency, amount_pen, account_id, counterpart_account_id")
+    .eq("status", "confirmado")
+    .gte("occurred_at", since);
+  const transactions: BalanceTx[] = (data ?? []).map((t) => ({
+    type: t.type,
+    status: t.status,
+    occurredAt: t.occurred_at,
+    amount: Number(t.amount),
+    currency: t.currency,
+    amountPen: Number(t.amount_pen),
+    accountId: t.account_id,
+    counterpartAccountId: t.counterpart_account_id,
+  }));
+  return accountBalances(
+    catalogs.accounts.map((a) => ({
+      id: a.id,
+      currency: a.currency,
+      openingBalance: a.opening_balance === null ? null : Number(a.opening_balance),
+      openingBalanceAt: a.opening_balance_at,
+    })),
+    transactions,
+  );
 }

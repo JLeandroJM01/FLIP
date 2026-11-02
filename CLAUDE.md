@@ -58,6 +58,7 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - **No contar nada dos veces.** Pagar la tarjeta (`pago_tarjeta`), mover plata entre cuentas propias (`transferencia`) y recibir el reembolso de un gasto compartido (`reembolso`) **no son gastos ni ingresos**. En reportes, de un gasto compartido solo cuenta **mi parte**.
 - Yape no es una cuenta: cobra de la **cuenta de ahorros soles** (tarjeta de débito ****4039), no de la tarjeta de crédito. La tarjeta ****4039 tampoco es una cuenta: es el medio de pago de la cuenta de ahorros.
 - Efectivo: el retiro de cajero es gasto "Efectivo" (sin detallar). Un gasto manual en efectivo va a su categoría y **se descuenta del Efectivo sin detallar** (el total no cambia); solo el excedente sobre lo retirado cuenta como gasto nuevo.
+- Saldos: `accounts.opening_balance` + movimientos confirmados desde `opening_balance_at` (lib/finance/balances.ts). Transferencias y pagos de tarjeta: salen de `account_id`, entran a `counterpart_account_id`. Tarjeta de crédito = saldo negativo (lo usado).
 - "Me yapearon" = `reembolso` con `person_id`, entra a la cuenta de ahorros soles y **resta del gastado del mes**. No es ingreso.
 - Si un movimiento no se entiende → `status = por_revisar`. Nunca se pierde ni se adivina.
 - La plata de la empresa no es personal hasta que se retira a una cuenta propia.

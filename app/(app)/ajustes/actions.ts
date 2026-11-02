@@ -97,16 +97,31 @@ const accountSchema = z.object({
   payment_day: day,
   closing_day: day,
   notes: optionalText,
+  // "Saldo hoy": si cambia, pasa a ser el nuevo saldo inicial desde este momento.
+  balance_now: optionalNum(z.number({ error: "Monto inválido" })),
+  balance_original: optionalNum(z.number()),
+  is_credit: z.preprocess((v) => v === "1", z.boolean()),
 });
 
 export async function saveAccount(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await requireUser();
   const parsed = accountSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error);
-  const { id, ...row } = parsed.data;
-  const { error } = await supabase.from("accounts").update(row).eq("id", id);
+  const { id, balance_now, balance_original, is_credit, ...row } = parsed.data;
+  const balanceChanged = balance_now !== null && balance_now !== balance_original;
+  const { error } = await supabase
+    .from("accounts")
+    .update({
+      ...row,
+      ...(balanceChanged && {
+        // En la tarjeta se escribe lo usado (positivo) y se guarda como saldo negativo.
+        opening_balance: is_credit ? -Math.abs(balance_now) : balance_now,
+        opening_balance_at: new Date().toISOString(),
+      }),
+    })
+    .eq("id", id);
   if (error) return { ok: false, message: error.code === "23505" ? "Ya existe una cuenta con ese nombre" : "No se pudo guardar" };
-  return done("Cuenta guardada");
+  return done(balanceChanged ? "Cuenta y saldo guardados" : "Cuenta guardada");
 }
 
 // ───────── Categorías ─────────

@@ -13,6 +13,14 @@ insert into public.accounts (name, type, last4, card_last4, currency, credit_lim
   ('Fondo AFP',               'activo',   null, null,   'PEN', null, null, 'Prima, Fondo 2. Hasta el 25% puede ir a la cuota inicial del depa', 7),
   ('Empresa (mancomunada)',   'empresa',  null, null,   'PEN', null, null, 'Solo cuenta como tuyo lo que pasas a tu cuenta', 8);
 
+-- Saldos (SPEC 4): lo que el usuario veía en su app del BCP al cargar FLIP (2 nov 2026).
+-- La tarjeta usa el dato del SPEC: S/ 6,568.52 usados al 1 nov 2026 (saldo negativo).
+update public.accounts set opening_balance = 298.57, opening_balance_at = now() where name = 'Cuenta corriente soles';
+update public.accounts set opening_balance = 422.53, opening_balance_at = now() where name = 'Cuenta de ahorros soles';
+update public.accounts set opening_balance = 0,      opening_balance_at = now() where name = 'Cuenta en dólares';
+update public.accounts set opening_balance = 0,      opening_balance_at = now() where name = 'CTS soles';
+update public.accounts set opening_balance = -6568.52, opening_balance_at = '2026-11-01 00:00:00-05' where name = 'Visa Oro LATAM Pass';
+
 -- ───────── Categorías (sección 7) ─────────
 insert into public.categories (name, icon, color, kind, sort_order) values
   ('Comida',               'utensils',        '#f59e0b', 'gasto', 1),

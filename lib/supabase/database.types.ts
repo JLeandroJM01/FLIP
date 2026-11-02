@@ -25,14 +25,14 @@ export type Database = {
           Tables: {
             "accounts": {
                   Row: {
-                    "card_last4": string | null,"closing_day": number | null,"created_at": string,"credit_limit": number | null,"currency": Database["public"]['Enums']["currency_code"],"id": string,"last4": string | null,"name": string,"notes": string | null,"payment_day": number | null,"sort_order": number,"type": Database["public"]['Enums']["account_type"]
+                    "card_last4": string | null,"closing_day": number | null,"created_at": string,"credit_limit": number | null,"currency": Database["public"]['Enums']["currency_code"],"id": string,"last4": string | null,"name": string,"notes": string | null,"opening_balance": number | null,"opening_balance_at": string | null,"payment_day": number | null,"sort_order": number,"type": Database["public"]['Enums']["account_type"]
                   }
                   ComputedFields: never
                   Insert: {
-                    "card_last4"?: string | null,"closing_day"?: number | null,"created_at"?: string,"credit_limit"?: number | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"last4"?: string | null,"name": string,"notes"?: string | null,"payment_day"?: number | null,"sort_order"?: number,"type": Database["public"]['Enums']["account_type"]
+                    "card_last4"?: string | null,"closing_day"?: number | null,"created_at"?: string,"credit_limit"?: number | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"last4"?: string | null,"name": string,"notes"?: string | null,"opening_balance"?: number | null,"opening_balance_at"?: string | null,"payment_day"?: number | null,"sort_order"?: number,"type": Database["public"]['Enums']["account_type"]
                   }
                   Update: {
-                    "card_last4"?: string | null,"closing_day"?: number | null,"created_at"?: string,"credit_limit"?: number | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"last4"?: string | null,"name"?: string,"notes"?: string | null,"payment_day"?: number | null,"sort_order"?: number,"type"?: Database["public"]['Enums']["account_type"]
+                    "card_last4"?: string | null,"closing_day"?: number | null,"created_at"?: string,"credit_limit"?: number | null,"currency"?: Database["public"]['Enums']["currency_code"],"id"?: string,"last4"?: string | null,"name"?: string,"notes"?: string | null,"opening_balance"?: number | null,"opening_balance_at"?: string | null,"payment_day"?: number | null,"sort_order"?: number,"type"?: Database["public"]['Enums']["account_type"]
                   }
                   Relationships: [
                     

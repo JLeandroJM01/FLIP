@@ -2,7 +2,7 @@
 
 **FLIP:** Finanzas y Liderazgo Inteligente con un Propósito.
 **Usuario:** José Leandro (uso personal, un solo usuario)
-**Versión:** 1.12 — 2 de noviembre de 2026 (backfill real: cuenta ****8175, crédito Yape de 9 cuotas, formatos 15–16, tipo de cambio de SUNAT). 1.11 — 2 de noviembre de 2026 (Fase 3: la empresa sale del proyecto; orden de deudas, fechas de pago, AFP, meta 30%). 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
+**Versión:** 1.13 — 2 de noviembre de 2026 (yapeo Yape→Yape, Plin rechazado, gráfico por categoría). 1.12 — 2 de noviembre de 2026 (backfill real: cuenta ****8175, crédito Yape de 9 cuotas, formatos 15–16, tipo de cambio de SUNAT). 1.11 — 2 de noviembre de 2026 (Fase 3: la empresa sale del proyecto; orden de deudas, fechas de pago, AFP, meta 30%). 1.10 — 2 de noviembre de 2026 (formatos 13–14 y correos ignorados vistos en la ingesta real; "Por revisar" incluye lo que llega sin categoría; tarea diaria). 1.9: sueldo recurrente, formato 7 y US$, hilos de Gmail. 1.8: correos reales, cuentas ****2046/****6060, formatos 10–12. 1.7: saldos de las cuentas. 1.6: nombre FLIP, cuentas reales, Yape en débito, reglas de efectivo y reembolsos
 **Para:** construirla con Claude Code. Este documento tiene todo el contexto; los puntos que aún faltan confirmar están en la sección 17.
 
 ---
@@ -128,6 +128,7 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 | 12 | `Constancia de Transferencia - Yape` con "¡Tu pago en Yape Promos fue exitoso!" | **gasto** (cuenta de ahorros, comercio "Yape Promos"); categoría por_revisar | Monto total, Fecha y hora, Número de operación Yape (no trae comercio) |
 | 13 | `Tu compra de … fue exitosa` (Yape) | **gasto** en la cuenta de Yape. Llega junto con el formato 12 por la misma compra: se fusionan y se queda el comercio real (p. ej. Norky's) | Comercio, Monto total, Fecha y hora `01/11/2026 a las 20:15` |
 | 14 | `Hola, te compartimos el comprobante de tu depósito recibido` (Yape) | **ingreso por_revisar** (puede ser un reembolso, un retiro de otra billetera o un ingreso) en la cuenta "**** 060" (= ****6060) | De, Monto `S/50`, Fecha `1 nov. 2026, 9:55 p. m.`, N° de cuenta, N° de operación, Mensajes |
+| 17 | `Por tu seguridad, te notificaremos por cada yapeo que realices` (Yape → Yape) | **gasto** en la cuenta de Yape, **por_revisar** como pago a persona | Monto de yapeo, Fecha y Hora de la operación, Nombre del Beneficiario, Nº de operación (todo en una línea, sin asteriscos) |
 | 15 | `Constancia de Pago con QR` (yapeo a celular desde la app BCP) | **por_revisar** como pago a persona (igual que el formato 3) | Monto enviado, Enviado a, Destino, Desde (****), Número de operación |
 | 16 | `Constancia de Adelanto de Sueldo` | **ingreso** categoría Sueldo (es el próximo sueldo pagado antes); el sueldo siguiente llega reducido en adelanto + comisión | Monto de adelanto, Comisión, Total a cobrar, Desde (****2046) |
 | — | `Constancia de envío de Estado de Cuenta`, `Tu crédito ya está disponible en tu cuenta Yape` (desembolso: la deuda está en la sección 11), `Tu fecha de pago está cerca` | **se ignoran** | — |
@@ -149,7 +150,9 @@ Todos los de BCP vienen de **"BCP Notificaciones"** y los de Yape de **"YAPE Not
 
 **Abono de sueldo:** el BCP no lo notifica por correo (según el usuario). El sueldo **no** espera un correo ni va a "Por revisar": se registra solo como ingreso recurrente (sección 9.5). Si algún día llega un correo de abono, se cruza con ese ingreso (monto parecido, mismo día) en vez de crear otro.
 
-**Yape a una persona:** llega como **consumo con tarjeta de débito** (formato 2), igual que un Plin (`PLIN-NOMBRE`). Confirmado por el usuario.
+**Yape a una persona:** un yapeo a Plin, BIM u otra entidad llega como **consumo con tarjeta de débito** (formato 2, `PLIN-NOMBRE`). Un yapeo **de Yape a Yape** llega con el formato 17, y el usuario lo tiene configurado para avisar **desde S/ 10**: los yapeos menores a S/ 10 se registran a mano en FLIP.
+
+**Plin rechazado:** el consumo con débito y su devolución llegan en el mismo minuto con el **mismo número de operación**. No son duplicados (son de distinto tipo): se crea el gasto y la devolución lo anula.
 
 **Confirmado con correos reales:** formato 7 (`Tu yapeo de servicio ha sido confirmado`: Monto total, Yapero(a), Fecha y hora `02 Nov, 2026 - 01:58 pm`, Nº de operación Yape, Empresa `Metropolitano y Corredores`, Servicio `Recarga de Tarjetas`, Código de usuario; sale de la cuenta de ahorros → Transporte por la regla "Metropolitano") y consumo en dólares con la tarjeta de crédito (formato 1 con `$ 0.45` en `APPLE.COM/BILL`).
 
@@ -340,7 +343,7 @@ El usuario la maneja aparte (2 nov 2026). No hay tablas, cuentas ni pantallas de
 
 ## 13. Pantallas
 
-1. **Inicio:** neto del mes (entró − gastado), gastado del mes vs presupuesto, "A pagar tarjeta el 5", "Te deben", progreso de deudas, progreso de la meta del depa, últimos 5 movimientos, botones rápidos (**+ Gasto efectivo**, **Me yapearon**, **+ Ingreso**).
+1. **Inicio:** gráfico de gasto por mes de la categoría elegida (últimos 6 meses), neto del mes (entró − gastado), gastado del mes vs presupuesto, "A pagar tarjeta el 5", "Te deben", progreso de deudas, progreso de la meta del depa, últimos 5 movimientos, botones rápidos (**+ Gasto efectivo**, **Me yapearon**, **+ Ingreso**).
 2. **Movimientos:** lista con filtros (mes, cuenta, categoría, etiqueta), buscador y pestaña **"Por revisar"** con un contador.
 3. **Tarjeta:** ciclo, pago estimado, cuotas y alertas.
 4. **Deudas:** lista, plan y fecha de salida.

@@ -100,7 +100,13 @@ Entornos: `.env.local` apunta al Supabase en la nube; `.env.development.local` (
 - Nunca adivinar: si falta monto, fecha o cuenta, el correo queda `desconocido`/`error` y se ve en "Por revisar".
 - Duplicados (match.ts): mismo nº de operación, o mismo monto+cuenta ±10 min de **otro** formato o manual. Dos consumos iguales del mismo formato con operaciones distintas NO son duplicados.
 - Fixtures nuevos: solo anonimizados (sin nombres, teléfonos ni códigos reales). `ejemplos/` (capturas reales) está en .gitignore.
-- Si cambia la lógica de un parser, subir `PARSER_VERSION`.
+- Si cambia la lógica de un parser, subir `PARSER_VERSION`; "Volver a leer" (y la tarea diaria) relee desconocidos, ignorados a mano sin lector, devoluciones y consumos marcados como duplicados de una versión anterior.
+- Duplicado por nº de operación exige el mismo tipo (un consumo y su devolución comparten número).
+
+## Rendimiento
+- `createClient`, `requireUser`, `getCatalogs`, `getSettings`, `getAccountBalances` y `countPendingReview` están memorizados por request (`React.cache`): el layout y la página comparten las consultas. Llamarlos con el mismo cliente.
+- `app/(app)/loading.tsx` da respuesta inmediata al navegar; en el Inicio, lo pesado va en `<Suspense>`.
+- Vercel corre en `sfo1` (vercel.json) para estar cerca de Supabase (us-west-2). `staleTimes.dynamic = 30` en next.config.
 
 ## Gotchas
 - **Nunca correr `npm run test:db` con las variables de `.env.local` exportadas en la terminal** (`set -a; . .env.local`): Node no pisa variables existentes y los tests borrarían datos de PRODUCCIÓN. `vitest.db.config.mts` aborta si `SUPABASE_URL` no es local. Para leer producción, hacerlo en un subshell `( … )` aparte.

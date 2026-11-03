@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TransactionFilters, type FilterOptions } from "@/components/transactions/filters";
 import { TransactionList } from "@/components/transactions/transaction-list";
+import { ReprocessButton } from "@/components/transactions/reprocess-button";
 import { UnparsedEmails } from "@/components/transactions/unparsed-emails";
 import { requireUser } from "@/lib/auth";
 import { currentYearMonth, monthRange, parseYearMonth, yearMonthKey, type YearMonth } from "@/lib/dates";
@@ -86,9 +87,12 @@ export default async function MovementsPage({ searchParams }: PageProps<"/movimi
       </nav>
 
       {reviewTab && (
-        <p className="text-sm text-muted-foreground">
-          Movimientos que FLIP no pudo decidir solo, o que llegaron sin categoría. Tócalos para confirmarlos.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Movimientos que FLIP no pudo decidir solo, o que llegaron sin categoría. Tócalos para confirmarlos.
+          </p>
+          <ReprocessButton />
+        </div>
       )}
 
       <UnparsedEmails emails={unparsed} />

@@ -105,3 +105,12 @@ test("Inicio: barras por categoría en computadora", async ({ page }) => {
   await expect(page.getByText("Gasto en Salidas por mes")).toBeVisible();
   await page.screenshot({ path: "e2e/screenshots/inicio-graficos-1440.png", fullPage: true });
 });
+
+test("'Volver a leer correos' está siempre visible en Por revisar (aunque no haya nada)", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/movimientos?vista=por_revisar");
+  const button = page.getByRole("button", { name: "Volver a leer correos" });
+  await expect(button).toBeVisible();
+  await button.click();
+  await expect(page.getByText(/^Procesados \d+/)).toBeVisible();
+});

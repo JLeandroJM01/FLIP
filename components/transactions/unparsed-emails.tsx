@@ -3,7 +3,7 @@
 import { MailWarning } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { ignoreRawEmail, reprocessEmails } from "@/app/(app)/actions";
+import { ignoreRawEmail } from "@/app/(app)/actions";
 import { Button } from "@/components/ui/button";
 import { formatShortDate, formatTime } from "@/lib/format";
 
@@ -15,24 +15,9 @@ export function UnparsedEmails({ emails }: { emails: Email[] }) {
   if (emails.length === 0) return null;
   return (
     <section className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <MailWarning className="size-4 text-amber-400" /> Correos sin entender ({emails.length})
-        </h2>
-        <Button
-          variant="outline"
-          size="touch"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              const r = await reprocessEmails();
-              toast.success(r.message ?? "Listo");
-            })
-          }
-        >
-          {pending ? "Leyendo…" : "Volver a leer"}
-        </Button>
-      </div>
+      <h2 className="flex items-center gap-2 px-1 text-sm font-medium">
+        <MailWarning className="size-4 text-amber-400" /> Correos sin entender ({emails.length})
+      </h2>
       <ul className="divide-y overflow-hidden rounded-xl border bg-card">
         {emails.map((e) => (
           <li key={e.id} className="flex flex-wrap items-center gap-3 px-3 py-2.5">

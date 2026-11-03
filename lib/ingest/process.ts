@@ -147,7 +147,11 @@ async function applyReversal(db: DB, ctx: Context, raw: RawEmail, parser: string
   const accountId = resolveAccount(r.account, ctx.accounts, ctx.yapeAccountId);
   if (!accountId) return { status: "error", parser, message: "cuenta desconocida en la devolución" };
   // Si este correo ya se leyó antes (sin encontrar el original), se quita lo que creó y se vuelve a intentar.
-  await db.from("transactions").delete().eq("raw_email_id", raw.id).eq("status", "por_revisar");
+  await db
+    .from("transactions")
+    .delete()
+    .eq("raw_email_id", raw.id)
+    .or("status.eq.por_revisar,note.eq.Devolución sin gasto original");
   const since = new Date(r.occurredAt.getTime() - 30 * 24 * 3600 * 1000).toISOString();
   const { data: originals } = await db
     .from("transactions")
@@ -157,7 +161,8 @@ async function applyReversal(db: DB, ctx: Context, raw: RawEmail, parser: string
     .in("status", ["confirmado", "por_revisar"])
     .eq("amount", r.amount)
     .gte("occurred_at", since)
-    .lte("occurred_at", r.occurredAt.toISOString())
+    // El consumo y su devolución pueden llegar en el mismo minuto (Plin rechazado).
+    .lte("occurred_at", new Date(r.occurredAt.getTime() + 15 * 60 * 1000).toISOString())
     .order("occurred_at", { ascending: false });
   const original = (originals ?? []).find((o) => (o.merchant ?? "").toLowerCase() === (r.merchant ?? "").toLowerCase());
   const when = limaDateKey(r.occurredAt);
@@ -243,23 +248,32 @@ export async function processPendingEmails(db: DB, options: ProcessOptions = {})
   if (retryErrors) filters.push("parse_status.eq.error");
   if (retryUnknown) {
     filters.push(`and(parse_status.eq.desconocido,parser_version.neq.${PARSER_VERSION})`);
-    // Devoluciones leídas con una versión anterior (antes solo buscaban el original entre los confirmados).
+    // Devoluciones leídas con una versión anterior, y consumos marcados por error como duplicados
+    // de una devolución (versión 1–2: mismo nº de operación sin mirar el tipo).
     filters.push(`and(parser.eq.devolucion,parser_version.neq.${PARSER_VERSION})`);
+    filters.push(`and(parser.eq.consumo_debito,error.like.duplicado*,parser_version.neq.${PARSER_VERSION})`);
+    // Desconocidos que el usuario ignoró a mano: se vuelven a leer por si ahora hay un lector.
+    filters.push(`and(parse_status.eq.ignorado,parser.eq.desconocido,parser_version.neq.${PARSER_VERSION})`);
   }
   const { data: pending } = await db
     .from("raw_emails")
-    .select("id, subject, body, received_at")
+    .select("id, subject, body, received_at, parse_status")
     .or(filters.join(","))
     .order("received_at", { ascending: true })
     .limit(limit);
   const summary: ProcessSummary = { processed: 0, ok: 0, ignored: 0, unknown: 0, errors: 0 };
   if (!pending?.length) return summary;
+  // En el mismo minuto, la devolución va después del consumo que devuelve.
+  const isReversal = (r: RawEmail) => /devoluci[oó]n/i.test(r.subject ?? "");
+  pending.sort((a, b) => (a.received_at ?? "").slice(0, 16).localeCompare((b.received_at ?? "").slice(0, 16)) || Number(isReversal(a)) - Number(isReversal(b)));
 
   const ctx = await loadContext(db);
   for (const raw of pending) {
-    const outcome = await processOne(db, ctx, raw).catch(
+    let outcome = await processOne(db, ctx, raw).catch(
       (e: Error): Outcome => ({ status: "error", parser: "?", message: e.message }),
     );
+    // Si el usuario lo había ignorado y sigue sin entenderse, queda ignorado.
+    if (raw.parse_status === "ignorado" && outcome.status === "desconocido") outcome = { ...outcome, status: "ignorado" };
     await db
       .from("raw_emails")
       .update({

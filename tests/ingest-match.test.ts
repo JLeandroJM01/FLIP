@@ -76,6 +76,9 @@ describe("findDuplicate (SPEC 3.2)", () => {
   it("mismo monto y cuenta en ± 10 min, de otro formato = duplicado (Yape Promos + Norky's)", () => {
     expect(findDuplicate(input, [c({})])?.id).toBe("c");
   });
+  it("un consumo y su devolución comparten el número de operación pero no son duplicados", () => {
+    expect(findDuplicate({ ...input, type: "gasto", externalOpId: "777", parser: "consumo_debito" }, [c({ type: "ingreso", external_op_id: "777", parser: "devolucion" })])).toBeNull();
+  });
   it("fuera de los 10 minutos no", () => {
     expect(findDuplicate(input, [c({ occurred_at: at("20:30") })])).toBeNull();
   });

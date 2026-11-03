@@ -211,5 +211,21 @@ describe("formatos encontrados en el backfill (texto real, anonimizado)", () => 
     "Constancia de envío de Estado de Cuenta - Servicio de Notificaciones BCP",
     "Tu crédito ya está disponible en tu cuenta Yape",
     "Tu fecha de pago está cerca",
+    "¡Le damos la bienvenida a su billetera digital! - Servicio de Notificaciones BCP",
+    "ENVIO AUTOMATICO - CONSTANCIA DE ENVIO DE OTP APPLE PAY",
   ])("se ignora: %s", (subject) => expect(parse(subject, "S/ 1.00").result.kind).toBe("ignore"));
+});
+
+describe("formato 17: yapeo de Yape a Yape (texto real, anonimizado)", () => {
+  it("gasto desde la cuenta de Yape, pago a persona por revisar", () => {
+    const { parser, result } = parseEmail({
+      subject: "Por tu seguridad, te notificaremos por cada yapeo que realices",
+      body: "*¡Hola, Usuario P*!*\n*¡Acabas de yapear exitosamente!*\n*Monto de yapeo**\nS/ 50.00\nYapero Usuario P* Tu número de celular XXXXXXXXX000 Fecha y Hora de la operación 02 noviembre 2026 - 07:43 p. m. Celular del Beneficiario XXXXXXXXX111 Nombre del Beneficiario Ana Ruiz* Nº de operación 27492789\n*Por tu seguridad, te notificaremos por cada\nyapeo que realices.",
+    });
+    expect(parser).toBe("yape_envio");
+    expect(result).toMatchObject({
+      kind: "transactions",
+      txs: [{ type: "gasto", amount: 50, account: { kind: "yape" }, merchant: "Yape a Ana Ruiz", externalOpId: "27492789", review: true, personHint: "Ana Ruiz", occurredAt: new Date("2026-11-02T19:43:00-05:00") }],
+    });
+  });
 });

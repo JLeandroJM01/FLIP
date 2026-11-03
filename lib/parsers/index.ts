@@ -6,7 +6,7 @@ import { parseMoney, parsePercent, parseRate, type Money } from "./money";
 import { cleanMerchant, field, last4After, normalizeBody } from "./text";
 
 /** Subir cuando cambie la lógica: permite volver a leer correos viejos (SPEC 3.2). */
-export const PARSER_VERSION = "2";
+export const PARSER_VERSION = "4";
 
 /** Cómo identificar la cuenta: últimos 4 de la cuenta/tarjeta, tarjeta de débito asociada, Yape o efectivo. */
 export type AccountRef =
@@ -179,6 +179,12 @@ const PARSERS: Parser[] = [
     matches: subjectHas("Tu fecha de pago está cerca"),
     parse: () => ({ kind: "ignore", reason: "recordatorio de pago del crédito Yape" }),
   },
+  {
+    name: "ignorar_avisos",
+    matches: (subject) =>
+      ["bienvenida a su billetera digital", "CONSTANCIA DE ENVIO DE OTP"].some((t) => subjectHas(t)(subject)),
+    parse: () => ({ kind: "ignore", reason: "aviso del banco (no es un movimiento)" }),
+  },
 
   // ───── formatos 1 y 2 ─────
   { name: "consumo_credito", matches: subjectHas("consumo con tu Tarjeta de Crédito"), parse: cardConsumption("Crédito") },
@@ -187,6 +193,39 @@ const PARSERS: Parser[] = [
   // ───── formato 3 y 10 ─────
   { name: "transferencia_otros_bancos", matches: subjectHas("Transferencia a Otros Bancos"), parse: transferToOthers("Monto enviado") },
   { name: "transferencia_terceros", matches: subjectHas("Transferencia a Terceros"), parse: transferToOthers("Monto transferido") },
+
+  // ───── formato 17: yapeo de Yape a Yape ("Por tu seguridad, te notificaremos por cada yapeo") ─────
+  // Texto en una sola línea, sin asteriscos: "Nombre del Beneficiario Bricet Rod* Nº de operación 27492789".
+  // Yape solo avisa yapeos desde S/ 10 (configuración del usuario): los menores se registran a mano.
+  {
+    name: "yape_envio",
+    matches: (subject, body) => subjectHas("te notificaremos por cada yapeo")(subject) && /Acabas de yapear/i.test(body),
+    parse: (body) => {
+      const flat = body.replace(/\s+/g, " ");
+      const money = parseMoney(flat.match(/Monto de yapeo\**\s*(S\/\s*[\d.,]+)/i)?.[1]);
+      const date = parseEmailDate(flat.match(/Fecha y Hora de la operación\s+(.+?)\s+Celular del Beneficiario/i)?.[1]);
+      const r = need(money, date, "yapeo");
+      if (isResult(r)) return r;
+      const name = flat.match(/Nombre del Beneficiario\s+(.+?)\s+N[º°o] de operación/i)?.[1]?.replace(/\*+$/, "").trim() ?? null;
+      return {
+        kind: "transactions",
+        txs: [
+          {
+            type: "gasto",
+            amount: r.money.amount,
+            currency: r.money.currency,
+            occurredAt: r.date,
+            account: { kind: "yape" },
+            merchant: name ? `Yape a ${name}` : "Yapeo",
+            externalOpId: flat.match(/N[º°o] de operación\s*(\d+)/i)?.[1] ?? null,
+            categoryName: "Pago a persona",
+            review: true, // ¿a quién y por qué? (pago, deuda, regalo…)
+            personHint: name,
+          },
+        ],
+      };
+    },
+  },
 
   // ───── formato 15: pago con QR / yapeo a celular desde la app del BCP ─────
   { name: "pago_qr", matches: subjectHas("Constancia de Pago con QR"), parse: transferToOthers("Monto enviado") },

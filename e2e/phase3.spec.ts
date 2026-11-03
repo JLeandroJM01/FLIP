@@ -80,3 +80,14 @@ test("simulador: gastar más al mes retrasa la meta", async ({ page }) => {
   await page.getByLabel("¿Y si gasto al mes…?").fill("3000");
   await expect(goal).not.toHaveText(before!);
 });
+
+test("Inicio: gráfico de gasto por categoría, con selector", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  const chart = page.locator("[data-slot=card]", { hasText: "por mes" });
+  await expect(chart.getByText("Gasto en total por mes")).toBeVisible();
+  await chart.getByRole("combobox", { name: "Categoría" }).selectOption({ label: "Salidas" });
+  await expect(chart.getByText("Gasto en Salidas por mes")).toBeVisible();
+  await chart.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "e2e/screenshots/inicio-grafico-375.png" });
+});

@@ -3,6 +3,7 @@
 import { HandCoins } from "lucide-react";
 import { useQuickAdd } from "@/components/quick-add/quick-add-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { limaDateKey } from "@/lib/dates";
 import { daysBetween } from "@/lib/finance";
 import { formatPEN } from "@/lib/format";
 import type { OwedItem } from "@/lib/types";
@@ -31,7 +32,7 @@ export function OwedCard({ owed, today }: { owed: OwedItem[]; today: string }) {
         ) : (
           <ul className="-mx-2 space-y-1">
             {[...byPerson.entries()].map(([personId, p]) => {
-              const days = daysBetween(p.oldest.slice(0, 10), today);
+              const days = Math.max(0, daysBetween(limaDateKey(new Date(p.oldest)), today));
               return (
                 <li key={personId}>
                   <button

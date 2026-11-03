@@ -1,11 +1,15 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import type { Database } from "./database.types";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./env";
 
-/** Un cliente nuevo por request (Server Components, Server Actions, Route Handlers). */
-export async function createClient() {
+/**
+ * Un cliente por request (Server Components, Server Actions, Route Handlers). `cache` hace que el
+ * layout y la página compartan el mismo cliente, y así las consultas memorizadas no se repiten.
+ */
+export const createClient = cache(async function createClient() {
   const cookieStore = await cookies();
   return createServerClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
@@ -19,4 +23,4 @@ export async function createClient() {
       },
     },
   });
-}
+});

@@ -1,8 +1,10 @@
 import { AlertCircle, ChevronRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CategoryIcon } from "@/components/category-icon";
 import { AccountsCard } from "@/components/home/accounts-card";
+import { CategoryChart } from "@/components/home/category-chart";
 import { OwedCard } from "@/components/home/owed-card";
 import { SharedPrompts } from "@/components/home/shared-prompts";
 import { QuickActions } from "@/components/home/quick-actions";
@@ -15,6 +17,7 @@ import {
   countPendingReview,
   getAccountBalances,
   getCatalogs,
+  getCategorySeries,
   getMonthSummary,
   getNextSalaryPayment,
   getRecentTransactions,
@@ -24,6 +27,7 @@ import {
 import { buildProjectionInput, downPaymentAvailable, project } from "@/lib/finance";
 import { loadProjectionContext } from "@/lib/projection-data";
 import { formatMoney, formatMonth, formatPEN, formatShortDate } from "@/lib/format";
+import type { Catalogs } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Inicio · FLIP" };
@@ -34,7 +38,8 @@ export default async function HomePage() {
   const ym = currentYearMonth(now);
   const catalogs = await getCatalogs(supabase);
   const today = limaDateKey(now);
-  const [summary, recent, pending, budget, balances, nextSalary, prompts, ctx, projectionSettings, depa] = await Promise.all([
+  // Lo de arriba (rápido) en paralelo; tarjeta, deudas, meta y gráfico se transmiten después (Suspense).
+  const [summary, recent, pending, budget, balances, nextSalary, prompts] = await Promise.all([
     getMonthSummary(supabase, ym, catalogs),
     getRecentTransactions(supabase, 5),
     countPendingReview(supabase),
@@ -42,16 +47,7 @@ export default async function HomePage() {
     getAccountBalances(supabase, catalogs),
     getNextSalaryPayment(supabase, today),
     getSharedPrompts(supabase, catalogs),
-    loadProjectionContext(supabase, catalogs, today),
-    getSetting<{ living?: number }>(supabase, "projection", {}),
-    getSetting<{ price: number; down_pct: number; closing_pct: number }>(supabase, "depa", { price: 400000, down_pct: 0.3, closing_pct: 0.02 }),
   ]);
-  const card = await getCardOverview(supabase, catalogs, balances, today);
-  const plan = ctx ? project(buildProjectionInput(ctx, { living: projectionSettings.living ?? 1500, bonusSalaries: 0 })) : null;
-  const goalTarget = depa.price * (depa.down_pct + depa.closing_pct);
-  const goalNow = plan ? downPaymentAvailable(plan.months[0]) : 0;
-  const goalMonth = plan?.months.find((m) => downPaymentAvailable(m) >= goalTarget)?.ym;
-  const monthLabel = (ym: string) => formatMonth(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)));
 
   const cashAccountId = catalogs.accounts.find((a) => a.type === "billetera")?.id;
   const daysInMonth = new Date(Date.UTC(ym.year, ym.month, 0)).getUTCDate();
@@ -195,6 +191,40 @@ export default async function HomePage() {
           )}
         </section>
 
+        <OwedCard owed={catalogs.owed} today={today} />
+
+        <Suspense fallback={<CardSkeletons count={3} />}>
+          <PlanCards catalogs={catalogs} balances={balances} today={today} />
+        </Suspense>
+      </div>
+
+      <Suspense fallback={<div className="h-80 animate-pulse rounded-xl border bg-card" />}>
+        <CategorySection catalogs={catalogs} />
+      </Suspense>
+    </div>
+  );
+}
+
+function CardSkeletons({ count }: { count: number }) {
+  return Array.from({ length: count }, (_, i) => <div key={i} className="h-40 animate-pulse rounded-xl border bg-card" />);
+}
+
+/** Tarjeta, deudas y meta del depa (usan la proyección: se transmiten después de lo principal). */
+async function PlanCards({ catalogs, balances, today }: { catalogs: Catalogs; balances: Map<string, number | null>; today: string }) {
+  const { supabase } = await requireUser();
+  const [card, ctx, projectionSettings, depa] = await Promise.all([
+    getCardOverview(supabase, catalogs, balances, today),
+    loadProjectionContext(supabase, catalogs, today),
+    getSetting<{ living?: number }>(supabase, "projection", {}),
+    getSetting<{ price: number; down_pct: number; closing_pct: number }>(supabase, "depa", { price: 400000, down_pct: 0.3, closing_pct: 0.02 }),
+  ]);
+  const plan = ctx ? project(buildProjectionInput(ctx, { living: projectionSettings.living ?? 1500, bonusSalaries: 0 })) : null;
+  const goalTarget = depa.price * (depa.down_pct + depa.closing_pct);
+  const goalNow = plan ? downPaymentAvailable(plan.months[0]) : 0;
+  const goalMonth = plan?.months.find((m) => downPaymentAvailable(m) >= goalTarget)?.ym;
+  const monthLabel = (ym: string) => formatMonth(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)));
+  return (
+    <>
         {card && (
           <Link href="/tarjeta" className="block">
             <Card className="h-full transition-colors hover:bg-muted/30">
@@ -214,7 +244,6 @@ export default async function HomePage() {
           </Link>
         )}
 
-        <OwedCard owed={catalogs.owed} today={today} />
 
         {plan && (
           <Link href="/deudas" className="block">
@@ -253,7 +282,13 @@ export default async function HomePage() {
             </Card>
           </Link>
         )}
-      </div>
-    </div>
+    </>
   );
+}
+
+/** Gráfico de gasto por categoría (últimos 6 meses). */
+async function CategorySection({ catalogs }: { catalogs: Catalogs }) {
+  const { supabase } = await requireUser();
+  const months = await getCategorySeries(supabase, catalogs, 6);
+  return <CategoryChart months={months} categories={catalogs.categories} />;
 }

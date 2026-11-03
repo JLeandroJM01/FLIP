@@ -1,6 +1,7 @@
 import "server-only";
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { monthRange, type YearMonth } from "@/lib/dates";
+import { currentYearMonth, monthRange, yearMonthKey, type YearMonth } from "@/lib/dates";
 import {
   accountBalances,
   DEFAULT_AFP_RATES,
@@ -21,7 +22,7 @@ type DB = SupabaseClient<Database>;
 export const TRANSACTION_SELECT =
   "*, account:accounts!transactions_account_id_fkey(id, name, type), category:categories(id, name, icon, color), person:people(id, name), shared:shared_expenses!transactions_shared_expense_id_fkey(total, my_share)";
 
-export async function getCatalogs(supabase: DB): Promise<Catalogs> {
+async function getCatalogsImpl(supabase: DB): Promise<Catalogs> {
   const [accounts, categories, people, tags, defaults, owed, creditors] = await Promise.all([
     supabase.from("accounts").select("*").order("sort_order"),
     supabase.from("categories").select("*").order("kind").order("sort_order"),
@@ -92,7 +93,7 @@ export async function getSetting<T>(supabase: DB, key: string, fallback: T): Pro
   return (data?.value as T | undefined) ?? fallback;
 }
 
-export async function getSettings(supabase: DB): Promise<Record<string, unknown>> {
+async function getSettingsImpl(supabase: DB): Promise<Record<string, unknown>> {
   const { data } = await supabase.from("settings").select("key, value");
   return Object.fromEntries((data ?? []).map((s) => [s.key, s.value]));
 }
@@ -115,7 +116,7 @@ export async function getRecentTransactions(supabase: DB, limit: number) {
 export const REVIEW_FILTER =
   "status.eq.por_revisar,and(status.eq.confirmado,category_id.is.null,type.in.(gasto,ingreso))";
 
-export async function countPendingReview(supabase: DB): Promise<number> {
+async function countPendingReviewImpl(supabase: DB): Promise<number> {
   const [{ count }, { count: emails }] = await Promise.all([
     supabase.from("transactions").select("id", { count: "exact", head: true }).or(REVIEW_FILTER),
     supabase.from("raw_emails").select("id", { count: "exact", head: true }).in("parse_status", ["desconocido", "error"]),
@@ -186,7 +187,7 @@ export async function getMonthSummary(supabase: DB, ym: YearMonth, catalogs: Cat
 }
 
 /** Saldo actual por cuenta (null = sin saldo inicial). Ver lib/finance/balances. */
-export async function getAccountBalances(supabase: DB, catalogs: Catalogs) {
+async function getAccountBalancesImpl(supabase: DB, catalogs: Catalogs) {
   const withOpening = catalogs.accounts.filter((a) => a.opening_balance_at);
   if (withOpening.length === 0) return accountBalances([], []);
   const since = withOpening.map((a) => a.opening_balance_at!).sort()[0];
@@ -240,3 +241,79 @@ export async function getNextSalaryPayment(supabase: DB, today: string): Promise
   }
   return null;
 }
+
+// Memorizadas por request (React cache): el layout y la página no repiten las mismas consultas.
+export const getCatalogs = cache(getCatalogsImpl);
+export const getSettings = cache(getSettingsImpl);
+export const getAccountBalances = cache(getAccountBalancesImpl);
+export const countPendingReview = cache(countPendingReviewImpl);
+
+/** Gasto por categoría de los últimos `count` meses (mismas reglas que el resumen del mes). */
+export const getCategorySeries = cache(async function getCategorySeries(supabase: DB, catalogs: Catalogs, count = 6) {
+  const now = currentYearMonth();
+  const months: YearMonth[] = [];
+  let { year, month } = now;
+  for (let i = 0; i < count; i++) {
+    months.unshift({ year, month });
+    month -= 1;
+    if (month === 0) {
+      month = 12;
+      year -= 1;
+    }
+  }
+  const first = monthRange(months[0]);
+  const last = monthRange(months.at(-1)!);
+  const cashAccountIds = catalogs.accounts.filter((a) => a.type === "billetera").map((a) => a.id);
+  const illiquidIds = catalogs.accounts.filter((a) => a.type === "activo").map((a) => a.id);
+  const cashCategoryId = catalogs.categories.find((c) => c.kind === "gasto" && c.name === "Efectivo")?.id ?? null;
+
+  const [all, before] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("occurred_at, type, status, amount_pen, category_id, account_id, shared_expense_id, shared:shared_expenses!transactions_shared_expense_id_fkey(total, my_share)")
+      .gte("occurred_at", first.start.toISOString())
+      .lt("occurred_at", last.end.toISOString())
+      .limit(5000),
+    supabase
+      .from("transactions")
+      .select("type, amount_pen, account_id")
+      .eq("status", "confirmado")
+      .lt("occurred_at", first.start.toISOString())
+      .or(
+        cashAccountIds.length
+          ? `type.eq.retiro_efectivo,and(type.eq.gasto,account_id.in.(${cashAccountIds.join(",")}))`
+          : "type.eq.retiro_efectivo",
+      ),
+  ]);
+  let cashTotals = { withdrawals: 0, cashExpenses: 0 };
+  for (const t of before.data ?? []) {
+    if (t.type === "retiro_efectivo") cashTotals.withdrawals += Number(t.amount_pen);
+    else cashTotals.cashExpenses += Number(t.amount_pen);
+  }
+
+  return months.map((ym) => {
+    const { start, end } = monthRange(ym);
+    const txs: SummaryTx[] = (all.data ?? [])
+      .filter((t) => t.occurred_at >= start.toISOString() && t.occurred_at < end.toISOString())
+      .map((t) => {
+        const shared = t.shared as { total: number; my_share: number } | null;
+        return {
+          type: t.type,
+          status: t.status,
+          amountPen: Number(t.amount_pen),
+          categoryId: t.category_id,
+          paidInCash: cashAccountIds.includes(t.account_id),
+          othersShare: t.type === "gasto" && shared ? Number(shared.total) - Number(shared.my_share) : 0,
+          paysSharedExpense: t.type === "reembolso" && !!t.shared_expense_id,
+          illiquid: illiquidIds.includes(t.account_id),
+        };
+      });
+    const summary = monthlySummary({ transactions: txs, cashTotalsBefore: cashTotals, cashCategoryId });
+    cashTotals = summary.cashTotalsAfter;
+    return {
+      ym: yearMonthKey(ym),
+      total: summary.spending,
+      byCategory: Object.fromEntries([...summary.byCategory.entries()].map(([k, v]) => [k ?? "sin", v])),
+    };
+  });
+});

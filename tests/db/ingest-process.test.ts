@@ -183,3 +183,22 @@ describe("volver a leer una devolución con un lector nuevo", () => {
     await db.from("transactions").delete().eq("id", original!.id);
   });
 });
+
+describe("Plin rechazado: consumo y devolución en el mismo minuto con el mismo nº de operación", () => {
+  it("el consumo se crea y la devolución lo anula (no queda un ingreso suelto)", async () => {
+    const f = (name: string) => readFileSync(`tests/fixtures/emails/${name}.txt`, "utf8").split("\n");
+    const [cs, ...cb] = f("consumo_debito_plin");
+    const [ds, ...dbody] = f("devolucion");
+    const at = "2026-10-05T04:09:30.000Z";
+    const consumo = cb.join("\n").replace("PLIN-JUAN PEREZ GO", "PLIN-ANA RUIZ").replace(/\*S\/ 26\.00\*/g, "*S/ 266.00*").replace("01 de noviembre de 2026 - 04:59 AM", "04 de octubre de 2026 - 11:09 PM").replace("051466", "424242");
+    const devol = dbody.join("\n").replace("PLIN-LUIS TORRES", "PLIN-ANA RUIZ").replace(/S\/ 500\.00/g, "S/ 266.00").replace("22 de octubre de 2026 - 03:18 PM", "04 de octubre de 2026 - 11:09 PM").replace("989474", "424242");
+    // La devolución "llega" primero (mismo minuto): el orden de proceso la pone después.
+    await db.from("raw_emails").insert([
+      { gmail_message_id: `${PREFIX}plin-devol`, subject: ds.replace(/^Subject: /, ""), body: devol, received_at: at, from_address: "test" },
+      { gmail_message_id: `${PREFIX}plin-consumo`, subject: cs.replace(/^Subject: /, ""), body: consumo, received_at: at, from_address: "test" },
+    ]);
+    await processPendingEmails(db);
+    const { data } = await db.from("transactions").select("type, status, amount_pen").eq("merchant", "PLIN-ANA RUIZ");
+    expect(data).toEqual([{ type: "gasto", status: "anulado", amount_pen: 266 }]);
+  });
+});

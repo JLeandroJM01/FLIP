@@ -106,7 +106,8 @@ const TEN_MINUTES = 10 * 60 * 1000;
  */
 export function findDuplicate(input: DupInput, candidates: DupCandidate[]): DupCandidate | null {
   for (const c of candidates) {
-    if (input.externalOpId && c.external_op_id === input.externalOpId) return c;
+    // Mismo nº de operación Y mismo tipo: un consumo y su devolución comparten el número, pero no son duplicados.
+    if (input.externalOpId && c.external_op_id === input.externalOpId && c.type === input.type) return c;
   }
   for (const c of candidates) {
     if (c.type !== input.type) continue;

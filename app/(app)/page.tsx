@@ -198,7 +198,14 @@ export default async function HomePage() {
         </Suspense>
       </div>
 
-      <Suspense fallback={<div className="h-80 animate-pulse rounded-xl border bg-card" />}>
+      <Suspense
+        fallback={
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="h-80 animate-pulse rounded-xl border bg-card" />
+            <div className="h-80 animate-pulse rounded-xl border bg-card" />
+          </div>
+        }
+      >
         <CategorySection catalogs={catalogs} />
       </Suspense>
     </div>

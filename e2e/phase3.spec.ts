@@ -81,13 +81,27 @@ test("simulador: gastar más al mes retrasa la meta", async ({ page }) => {
   await expect(goal).not.toHaveText(before!);
 });
 
-test("Inicio: gráfico de gasto por categoría, con selector", async ({ page }) => {
+test("Inicio: barras por categoría y gasto por mes de la categoría elegida", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
-  const chart = page.locator("[data-slot=card]", { hasText: "por mes" });
-  await expect(chart.getByText("Gasto en total por mes")).toBeVisible();
-  await chart.getByRole("combobox", { name: "Categoría" }).selectOption({ label: "Salidas" });
-  await expect(chart.getByText("Gasto en Salidas por mes")).toBeVisible();
-  await chart.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: "e2e/screenshots/inicio-grafico-375.png" });
+  const bars = page.locator("[data-slot=card]", { hasText: "Gasto por categoría" });
+  const trend = page.locator("[data-slot=card]", { hasText: "por mes" });
+  await expect(bars.getByText("Salidas").first()).toBeVisible();
+  await expect(trend.getByText("Gasto en total por mes")).toBeVisible();
+  // Elegir la categoría desde el selector del histograma
+  await trend.getByRole("combobox", { name: "Categoría" }).selectOption({ label: "Salidas" });
+  await expect(trend.getByText("Gasto en Salidas por mes")).toBeVisible();
+  await bars.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "e2e/screenshots/inicio-graficos-375.png", fullPage: true });
+});
+
+test("Inicio: barras por categoría en computadora", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const bars = page.locator("[data-slot=card]", { hasText: "Gasto por categoría" });
+  await expect(bars.getByText("Salidas").first()).toBeVisible();
+  // Tocar la barra muestra la evolución de esa categoría en el histograma
+  await bars.locator(".recharts-bar-rectangle path, .recharts-bar-rectangle").first().click();
+  await expect(page.getByText("Gasto en Salidas por mes")).toBeVisible();
+  await page.screenshot({ path: "e2e/screenshots/inicio-graficos-1440.png", fullPage: true });
 });
